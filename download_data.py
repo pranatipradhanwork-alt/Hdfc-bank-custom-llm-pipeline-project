@@ -24,4 +24,6 @@ if os.path.exists(source_file):
     print(f"✅ Success! Raw dataset copied straight to: {destination_file}")
     print(f"📊 Workspace Layout: data/BankFAQs.csv is ready.")
 else:
-    print("⚠️ Error: BankFAQs.csv was not found inside the cache path.")
+    print("⚠️ Error: BankFAQs.csv was not found inside the cache path. Please check if the dataset was downloaded correctly.")
+    
+    
