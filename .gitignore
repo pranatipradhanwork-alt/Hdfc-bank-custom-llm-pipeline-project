@@ -1,0 +1,6 @@
+hdfc_env/
+__pycache__/
+*.pyc
+data/BankFAQs.csv
+data/s3_storage_vault/
+.env
