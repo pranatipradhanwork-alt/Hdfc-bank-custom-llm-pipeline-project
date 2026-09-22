@@ -155,26 +155,24 @@ train_cfg=cfg["training_arguments"]
 
 training_arguments = TrainingArguments(
     output_dir=str(LORA_OUTPUT_DIR),
-    per_device_train_batch_size=train_cfg["per_device_train_batch_size"],
+    per_device_train_batch_size=train_cfg.get("per_device_train_batch_size", 2),
     per_device_eval_batch_size=train_cfg.get("per_device_eval_batch_size", 2),
-    gradient_accumulation_steps=train_cfg["gradient_accumulation_steps"],
-    num_train_epochs=train_cfg["num_train_epochs"],
-    learning_rate=train_cfg["learning_rate"],
-    warmup_steps=train_cfg["warmup_steps"],
-    logging_dir=str(LORA_OUTPUT_DIR / "logs"),
-    logging_steps=train_cfg["logging_steps"],
-    save_strategy=train_cfg["save_strategy"],
-    save_total_limit=train_cfg["save_total_limit"],
-    evaluation_strategy=train_cfg["evaluation_strategy"],
-    eval_steps=train_cfg["eval_steps"],
+    gradient_accumulation_steps=train_cfg.get("gradient_accumulation_steps", 4),
+    num_train_epochs=train_cfg.get("num_train_epochs", 1),
+    learning_rate=float(train_cfg.get("learning_rate", 2e-4)),
+    warmup_steps=train_cfg.get("warmup_steps", 10),
+    logging_steps=train_cfg.get("logging_steps", 5),
+    save_strategy=train_cfg.get("save_strategy", "steps"),
+    save_total_limit=train_cfg.get("save_total_limit", 1),
+    eval_strategy=train_cfg.get("evaluation_strategy", "steps"),
+    eval_steps=train_cfg.get("eval_steps", 50),
     load_best_model_at_end=True,
     metric_for_best_model="loss",
     greater_is_better=False,
-    fp16=(torch_precision==torch.float16) if device_target == "cuda" else False,
+    fp16=(torch_precision == torch.float16) if device_target == "cuda" else False,
     push_to_hub=False,
-    bf16=True if device_target == "cuda"  and torch.cuda.is_bf16_supported() else False,
-    report_to = "mlflow" ,
-
+    bf16=True if device_target == "cuda" and torch.cuda.is_bf16_supported() else False,
+    report_to="mlflow"
 )
 
 #Training engine: Combining the model, tokenizer, training arguments, and datasets into a single SFTTrainer instance
@@ -183,14 +181,12 @@ test_mapped = test_data.map(formatting_prompts, batched=True, remove_columns=tes
 
 trainer=SFTTrainer(
     model=model,
-    tokenizer=tokenizer,
+    processing_class=tokenizer,
     args=training_arguments,
     train_dataset=train_mapped,
     eval_dataset=test_mapped,
     data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
-    max_seq_length=cfg.get("max_seq_length", 512),
-    peft_config=None,
-    dataset_text_field="text"
+    peft_config=None
 )
 
 print(f"[LAUNCH] Beginning fine-tuning process with SFTTrainer on {device_target.upper()} device...")

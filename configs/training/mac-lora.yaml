@@ -1,8 +1,8 @@
 hardware_platform: "mac-mps"
 base_model_name: "Qwen/Qwen2.5-0.5B"
-torch_dtype: "float32"
+torch_dtype: "float16"
 use_quantization: false
-peft:
+lora:
   r: 16
   lora_alpha: 32
   target_modules: ["q_proj", "v_proj"]
