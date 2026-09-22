@@ -9,6 +9,7 @@ from datasets import Dataset
 import transformers
 from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, DataCollatorForLanguageModeling
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training 
+from trl import SFTTrainer
 
 #ENVIRONMENT SETTING AND  HARDWARE CONFIGURATION
 
@@ -80,7 +81,7 @@ torch_precision = torch.float32 if cfg["torch_dtype"] == "float32" else torch.fl
 
 #Apply the infrastructure routing control rules
 
-if cfg["use_quantization"]:
+if cfg["use_quantization"] and device_target == "cuda":
     from transformers import BitsAndBytesConfig
     q_cfg=cfg["quantization"]
     bnb_config=BitsAndBytesConfig(
@@ -94,16 +95,17 @@ if cfg["use_quantization"]:
         trust_remote_code=True,
         device_map="auto",
         quantization_config=bnb_config,
-        torch_dtype=torch_precision
+        dtype=torch_precision
         )
     model=prepare_model_for_kbit_training(model)
+    active_hardware = "CUDA (Quantized)"
 else:
     model = AutoModelForCausalLM.from_pretrained(
         model_id,
         trust_remote_code=True,
-        device_map="cpu",  
+        #device_map="auto",  
         low_cpu_mem_usage=True,  
-        torch_dtype=torch_precision
+        dtype=torch_precision
     )
 
     if torch.backends.mps.is_available():
@@ -115,7 +117,93 @@ else:
 print(f"[SUCCESS]Core trmsformer model loaded successfully on target device engine: {active_hardware}.")
 
 
+#MODEL FINETUNING WITH MODULAR ADAPTERS(PEFT/LORA)
 
+print("\n[INFO] Configuring LoRA adapters for parameter-efficient fine-tuning...")
+lora_cfg=cfg["lora"]
+
+peft_config=LoraConfig(
+    
+    task_type="CAUSAL_LM",
+    r=lora_cfg["r"],
+    lora_alpha=lora_cfg["lora_alpha"],
+    lora_dropout=lora_cfg["lora_dropout"],
+    target_modules=lora_cfg["target_modules"],
+    bias="none"
+)
+
+#Attach lora adapters to the base model
+
+model=get_peft_model(model, peft_config)
+trainable_count,total_count = model.get_nb_trainable_parameters()
+print(f"[SUCCESS] LoRA adapters attached to the base model. Total trainable parameters: {trainable_count:,}")
+
+
+#SFTTRAINER PIPELINE SETUP WITH MLFLOW LINKS
+
+print("\n[INFO] Setting up SFTTrainer pipeline for supervised fine-tuning...")
+
+def formatting_prompts(example):
+    output_texts=[]
+    for i in range(len(example["User_Query"])):
+        text = f"Context: Standard HDFC protocol apply.\nUser Query: {example['User_Query'][i]}\nHDFC Authorized Support Response: {example['Target_Banking_Response'][i]}{tokenizer.eos_token}"
+        output_texts.append(text)
+    return {"text": output_texts}
+train_cfg=cfg["training_arguments"]
+
+#Instantiate the centralized execution matrix agruments
+
+training_arguments = TrainingArguments(
+    output_dir=str(LORA_OUTPUT_DIR),
+    per_device_train_batch_size=train_cfg["per_device_train_batch_size"],
+    per_device_eval_batch_size=train_cfg.get("per_device_eval_batch_size", 2),
+    gradient_accumulation_steps=train_cfg["gradient_accumulation_steps"],
+    num_train_epochs=train_cfg["num_train_epochs"],
+    learning_rate=train_cfg["learning_rate"],
+    warmup_steps=train_cfg["warmup_steps"],
+    logging_dir=str(LORA_OUTPUT_DIR / "logs"),
+    logging_steps=train_cfg["logging_steps"],
+    save_strategy=train_cfg["save_strategy"],
+    save_total_limit=train_cfg["save_total_limit"],
+    evaluation_strategy=train_cfg["evaluation_strategy"],
+    eval_steps=train_cfg["eval_steps"],
+    load_best_model_at_end=True,
+    metric_for_best_model="loss",
+    greater_is_better=False,
+    fp16=(torch_precision==torch.float16) if device_target == "cuda" else False,
+    push_to_hub=False,
+    bf16=True if device_target == "cuda"  and torch.cuda.is_bf16_supported() else False,
+    report_to = "mlflow" ,
+
+)
+
+#Training engine: Combining the model, tokenizer, training arguments, and datasets into a single SFTTrainer instance
+train_mapped = train_data.map(formatting_prompts, batched=True, remove_columns=train_data.column_names)
+test_mapped = test_data.map(formatting_prompts, batched=True, remove_columns=test_data.column_names)
+
+trainer=SFTTrainer(
+    model=model,
+    tokenizer=tokenizer,
+    args=training_arguments,
+    train_dataset=train_mapped,
+    eval_dataset=test_mapped,
+    data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
+    max_seq_length=cfg.get("max_seq_length", 512),
+    peft_config=None,
+    dataset_text_field="text"
+)
+
+print(f"[LAUNCH] Beginning fine-tuning process with SFTTrainer on {device_target.upper()} device...")
+
+try:
+    trainer.train()
+
+    print(f"[INFO] Packaging and saving the fine-tuned LoRA adapter model to: {LORA_OUTPUT_DIR}...")
+    trainer.model.save_pretrained(str(LORA_OUTPUT_DIR))
+    tokenizer.save_pretrained(str(LORA_OUTPUT_DIR))
+    print(f"[SUCCESS] Fine-tuned LoRA adapter model saved successfully...")
+except Exception as e:
+    print(f"[FAIL] Fine_tuning loop failed:{str(e)}")
 
 
 
