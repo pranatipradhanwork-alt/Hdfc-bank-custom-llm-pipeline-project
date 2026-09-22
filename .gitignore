@@ -4,3 +4,10 @@ __pycache__/
 data/BankFAQs.csv
 data/s3_storage_vault/
 .env
+
+# Ignore local MLflow telemetry data logs
+
+mlflow.db
+mlflow_telemetry_vault/
+mlruns/
+.mlruns/
