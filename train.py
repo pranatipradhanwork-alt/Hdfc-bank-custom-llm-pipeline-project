@@ -7,7 +7,8 @@ import torch
 from deltalake import DeltaTable
 from datasets import Dataset
 import transformers
-from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, DataCollatorForLanguageModeling
+from transformers import AutoTokenizer, AutoModelForCausalLM, TrainingArguments, DataCollatorForLanguageModeling,DataCollatorForSeq2Seq
+
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training 
 from trl import SFTTrainer
 
@@ -155,6 +156,7 @@ train_cfg=cfg["training_arguments"]
 
 training_arguments = TrainingArguments(
     output_dir=str(LORA_OUTPUT_DIR),
+    max_steps=5,
     per_device_train_batch_size=train_cfg.get("per_device_train_batch_size", 2),
     per_device_eval_batch_size=train_cfg.get("per_device_eval_batch_size", 2),
     gradient_accumulation_steps=train_cfg.get("gradient_accumulation_steps", 4),
@@ -164,9 +166,9 @@ training_arguments = TrainingArguments(
     logging_steps=train_cfg.get("logging_steps", 5),
     save_strategy=train_cfg.get("save_strategy", "steps"),
     save_total_limit=train_cfg.get("save_total_limit", 1),
-    eval_strategy=train_cfg.get("evaluation_strategy", "steps"),
+    eval_strategy="no",
     eval_steps=train_cfg.get("eval_steps", 50),
-    load_best_model_at_end=True,
+    load_best_model_at_end=False,
     metric_for_best_model="loss",
     greater_is_better=False,
     fp16=(torch_precision == torch.float16) if device_target == "cuda" else False,
@@ -185,7 +187,7 @@ trainer=SFTTrainer(
     args=training_arguments,
     train_dataset=train_mapped,
     eval_dataset=test_mapped,
-    data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
+    data_collator=DataCollatorForSeq2Seq(tokenizer=tokenizer, model=model ,padding=True),
     peft_config=None
 )
 
