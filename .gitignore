@@ -17,3 +17,5 @@ mlruns/
 .AppleDouble
 .LSOverride
 ._*
+# Ignore heavy fine-tuned weights folders
+models/
