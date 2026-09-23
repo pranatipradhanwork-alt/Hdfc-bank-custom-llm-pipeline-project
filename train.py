@@ -112,14 +112,19 @@ print(f"[STATUS] Data partitions allocation: {len(train_data)} train / {len(val_
 
 #MODEL INSTATIATION AND TOKENIZER SETUP
 
-model_id=cfg["base_model_name"]
+#BASE_MODEL overrides the config, so Qwen and Llama can be trained with identical settings for comparison
+model_id=os.getenv("BASE_MODEL",cfg["base_model_name"])
 print(f"\n[INFO] Loading base model: {model_id}...")
 
 #Initialize automated text-to-token matrix translator
 
 tokenizer=AutoTokenizer.from_pretrained(model_id,trust_remote_code=True)
 if tokenizer.pad_token is None:
-    tokenizer.pad_token=tokenizer.eos_token
+    #Llama 3 ships no pad token but reserves one for fine-tuning; fall back to EOS for other models
+    if "<|finetune_right_pad_id|>" in tokenizer.get_vocab():
+        tokenizer.pad_token="<|finetune_right_pad_id|>"
+    else:
+        tokenizer.pad_token=tokenizer.eos_token
 tokenizer.padding_side="right"
 
 #Select mathematically float calculation scale dynamic
