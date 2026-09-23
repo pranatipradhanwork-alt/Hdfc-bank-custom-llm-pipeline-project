@@ -4,3 +4,7 @@ __pycache__/
 data/BankFAQs.csv
 data/s3_storage_vault/
 .env
+.venv/
+models/
+*.log
+test_output.txt
