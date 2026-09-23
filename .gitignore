@@ -11,3 +11,9 @@ mlflow.db
 mlflow_telemetry_vault/
 mlruns/
 .mlruns/
+
+# Ignore hidden macOS system configuration files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
