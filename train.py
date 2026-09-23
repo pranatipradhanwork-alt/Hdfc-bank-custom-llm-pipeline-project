@@ -1,6 +1,8 @@
 import os
 import sys
 import json
+import subprocess
+import mlflow
 from dotenv import load_dotenv
 import yaml
 from pathlib import Path
@@ -27,6 +29,26 @@ MAX_STEPS=int(os.getenv("MAX_STEPS","-1"))
 #One seed for data split, LoRA init and trainer shuffling, so runs are reproducible
 SEED=int(os.getenv("SEED","42"))
 set_seed(SEED)
+
+#MLflow experiment tracking: local SQLite store by default (view with: mlflow ui --backend-store-uri sqlite:///mlflow.db)
+#Each run is named after its output folder, e.g. stage2_150 or hdfc_lora_v1
+MLFLOW_TRACKING_URI=os.getenv("MLFLOW_TRACKING_URI","sqlite:///mlflow.db")
+MLFLOW_EXPERIMENT_NAME=os.getenv("MLFLOW_EXPERIMENT_NAME","hdfc-bankfaq-lora")
+MLFLOW_RUN_NAME=os.getenv("MLFLOW_RUN_NAME",LORA_OUTPUT_DIR.name)
+os.environ["MLFLOW_TRACKING_URI"]=MLFLOW_TRACKING_URI
+os.environ["MLFLOW_EXPERIMENT_NAME"]=MLFLOW_EXPERIMENT_NAME
+mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+mlflow.set_experiment(MLFLOW_EXPERIMENT_NAME)
+
+
+def current_git_commit():
+    #Code version for the run manifest; "-dirty" means uncommitted changes were present
+    try:
+        commit=subprocess.check_output(["git","rev-parse","--short","HEAD"],text=True).strip()
+        dirty=subprocess.check_output(["git","status","--porcelain","--untracked-files=no"],text=True).strip()
+        return commit+("-dirty" if dirty else "")
+    except Exception:
+        return "unknown"
 
 #Auto-detect GPU availability and set device accordingly
 
@@ -239,6 +261,28 @@ trainer=SFTTrainer(
 
 print(f"[LAUNCH] Beginning fine-tuning process with SFTTrainer on {device_target.upper()} device (max_steps={MAX_STEPS})...")
 
+#Open the MLflow run ourselves so training, validation and test metrics plus artifacts all land in ONE run.
+#The Trainer's MLflow callback reuses this active run and does not close it.
+mlflow.start_run(run_name=MLFLOW_RUN_NAME)
+mlflow.set_tags({
+    "base_model":model_id,
+    "config_profile":config_profile,
+    "device":active_hardware,
+    "git_commit":current_git_commit(),
+    "dataset_path":str(LOCAL_S3_VAULT),
+    "dataset_version":str(dt.version()),
+    "tasks":",".join(sorted(df["Task"].unique())),
+    "seed":str(SEED),
+    "max_steps":str(MAX_STEPS),
+    "output_dir":str(LORA_OUTPUT_DIR),
+})
+#Dataset lineage: records the exact Delta snapshot (with a content digest) used for training
+mlflow.log_input(
+    mlflow.data.from_pandas(df, source=str(LOCAL_S3_VAULT), name=f"cleaned_banking_table_v{dt.version()}"),
+    context="training",
+)
+mlflow.log_artifact(config_profile, artifact_path="config")
+
 try:
     train_result=trainer.train()
 
@@ -263,9 +307,21 @@ try:
         "train_loss":train_result.training_loss,
         **test_metrics,
     }
+    metrics["mlflow_run_id"]=mlflow.active_run().info.run_id
     with open(LORA_OUTPUT_DIR / "metrics.json","w") as f:
         json.dump(metrics,f,indent=2)
+
+    #Attach the adapter itself to the run (tokenizer is left out: it comes unchanged from the base model)
+    for artifact in ("adapter_config.json","adapter_model.safetensors","metrics.json"):
+        mlflow.log_artifact(str(LORA_OUTPUT_DIR / artifact), artifact_path="adapter")
+    mlflow.end_run(status="FINISHED")
     print(f"[SUCCESS] Fine-tuned LoRA adapter model and metrics.json saved successfully...")
+    print(f"[STATUS] MLflow run '{MLFLOW_RUN_NAME}' ({metrics['mlflow_run_id']}) logged to experiment '{MLFLOW_EXPERIMENT_NAME}'")
+except KeyboardInterrupt:
+    mlflow.end_run(status="KILLED")
+    print("[FAIL] Fine-tuning stopped by user (Ctrl+C). MLflow run marked KILLED.")
+    raise
 except Exception as e:
+    mlflow.end_run(status="FAILED")
     print(f"[FAIL] Fine_tuning loop failed:{str(e)}")
     raise
