@@ -1,5 +1,5 @@
 hardware_platform: "mac-mps"
-base_model_name: "Qwen/Qwen2.5-0.5B"
+base_model_name: "Qwen/Qwen2.5-0.5B-Instruct"
 torch_dtype: "float16"
 use_quantization: false
 lora:

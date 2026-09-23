@@ -19,3 +19,9 @@ mlruns/
 ._*
 # Ignore heavy fine-tuned weights folders
 models/
+
+# Local data, environments and logs
+data/banking77_*.csv
+.venv/
+*.log
+test_output.txt

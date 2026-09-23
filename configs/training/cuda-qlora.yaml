@@ -1,12 +1,12 @@
 hardware_platform: "cuda-qlora"
-base_model_name: "Qwen/Qwen2.5-0.5B"
+base_model_name: "Qwen/Qwen2.5-0.5B-Instruct"
 torch_dtype: "float16"
 use_quantization: true
 quantization:
   load_in_4bit: true
   bnb_4bit_quant_type: "nf4"
   bnb_4bit_use_double_quant: true
-peft:
+lora:
   r: 16
   lora_alpha: 32
   target_modules: ["q_proj", "v_proj"]
