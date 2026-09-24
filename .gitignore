@@ -25,3 +25,6 @@ data/banking77_*.csv
 .venv/
 *.log
 test_output.txt
+
+# Local evaluation output (scores are summarised in README.md and logged to MLflow)
+reports/
