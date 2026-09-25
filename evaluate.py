@@ -25,6 +25,8 @@ from deltalake import DeltaTable
 from peft import PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, LogitsProcessor, LogitsProcessorList
 
+from guardrails import invented_specifics
+
 # Must match train.py, so prompts and the test split are exactly what training used
 SYSTEM_PROMPT = (
     "You are HDFC Bank's customer support assistant. Answer banking questions clearly "
@@ -42,6 +44,10 @@ def load_test_split(dataset_version):
     df = DeltaTable(str(LOCAL_S3_VAULT), version=dataset_version).to_pandas()
     if "Task" not in df.columns:
         df["Task"] = "faq"
+    if "Split" in df.columns:
+        # Frozen partitions (v7+); same row order train.py uses for its test split
+        test = df[df["Split"] == "test"].sample(frac=1, random_state=SEED)
+        return test[test["Task"] == "faq"].reset_index(drop=True)
     tests = []
     for _, group in df.groupby("Task"):
         group = group.sample(frac=1, random_state=SEED)
@@ -149,20 +155,6 @@ def token_f1(prediction, reference):
     return 2 * precision * recall / (precision + recall)
 
 
-SPECIFIC = re.compile(r"(?i)(?:rs\.?|₹|inr)\s*\d[\d,.]*|\d[\d,.]*\s*(?:%|lakhs?|crores?|days?|months?|years?|hours?)|\d{3,5}(?:[\s-]\d{3,4}){2}|\d{7,}")
-
-
-def invented_specifics(prediction, reference):
-    # Amounts, rates, periods and phone-like numbers in the answer whose number never appears in the reference
-    reference_numbers = set(re.findall(r"\d+", reference.replace(",", "")))
-    invented = []
-    for match in SPECIFIC.findall(prediction):
-        numbers = re.findall(r"\d+", match.replace(",", ""))
-        if numbers and not all(n in reference_numbers for n in numbers):
-            invented.append(match.strip())
-    return invented
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--adapter", required=True, help="Adapter folder written by train.py, e.g. models/qwen_v1")
@@ -206,7 +198,10 @@ def main():
         index = FaqIndex()
     default_version = index.meta["dataset_version"] if index else train_metrics["dataset_version"]
     dataset_version = args.dataset_version if args.dataset_version is not None else default_version
-    # Later Delta versions only rewrite text (e.g. the M&N -> HDFC fix), so the same rows stay held out
+    if dataset_version != train_metrics["dataset_version"]:
+        # v5/v6 only rewrote text, but v7 re-partitioned the data, so older adapters may have trained on its test rows
+        print(f"[WARN] Scoring on Delta v{dataset_version} but the adapter trained on v{train_metrics['dataset_version']}: "
+              "held-out status is only guaranteed when both use the same split")
     test = load_test_split(dataset_version)
     if args.reworded:
         reworded = pd.read_csv(REWORDED_QUESTIONS)

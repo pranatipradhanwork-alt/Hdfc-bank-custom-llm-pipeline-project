@@ -94,13 +94,18 @@ print(f"[STATUS] Records per task: {df['Task'].value_counts().to_dict()}")
 #Validation is scored during training; test is held out for the final score only.
 
 splits={"train":[],"validation":[],"test":[]}
-for task,group in df.groupby("Task"):
-    group=group.sample(frac=1,random_state=SEED)
-    n_train=int(len(group)*0.8)
-    n_val=int(len(group)*0.1)
-    splits["train"].append(group.iloc[:n_train])
-    splits["validation"].append(group.iloc[n_train:n_train+n_val])
-    splits["test"].append(group.iloc[n_train+n_val:])
+if "Split" in df.columns:
+    #v7+: partitions are frozen in the table by clean_data.py (deduplicated, grouped by question meaning)
+    for name in splits:
+        splits[name].append(df[df["Split"]==name])
+else:
+    for task,group in df.groupby("Task"):
+        group=group.sample(frac=1,random_state=SEED)
+        n_train=int(len(group)*0.8)
+        n_val=int(len(group)*0.1)
+        splits["train"].append(group.iloc[:n_train])
+        splits["validation"].append(group.iloc[n_train:n_train+n_val])
+        splits["test"].append(group.iloc[n_train+n_val:])
 
 #converting pandas dataframes to huggingface datasets (shuffled so tasks are mixed)
 
