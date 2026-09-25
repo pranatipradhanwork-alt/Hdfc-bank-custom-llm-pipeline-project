@@ -110,9 +110,17 @@ def is_injected(text):
     return bool(INJECTION.search(text))
 
 
+# The model sometimes echoes the prompt's "[1] Q: ... A:" entry layout before the answer
+ECHOED_ENTRY = re.compile(r"^\s*\[\d+\]\s*Q:.*?\n\s*A:\s*", re.DOTALL)
+
+
+def strip_echoed_entry(answer):
+    return ECHOED_ENTRY.sub("", answer, count=1).strip()
+
+
 def check_output(answer, context):
     # Mask first, so a leaked identifier is reported as PII rather than as an unsupported figure
-    masked, pii = mask_sensitive(answer)
+    masked, pii = mask_sensitive(strip_echoed_entry(answer))
     flags = [f"output_contains_{label.lower()}" for label in pii]
     if asks_for_credentials(masked):
         flags.append("asks_for_credentials")
