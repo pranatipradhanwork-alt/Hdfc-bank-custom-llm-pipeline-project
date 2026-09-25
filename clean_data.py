@@ -80,6 +80,11 @@ else:
     
     # 4. HDFC Bank Brand Alignment
     print("Aligning text terminology with HDFC corporate brand standards...")
+    # The Kaggle dump anonymises HDFC as "M&N" ("M&N  Bank", "M&N Life", "www.m&N.com"); restore the real name
+    for column in ('User_Query', 'Target_Banking_Response'):
+        df[column] = df[column].str.replace(r"(?i)\bM&N\s+bank\b", "HDFC Bank", regex=True)
+        df[column] = df[column].str.replace(r"(?i)M&N\s+", "HDFC ", regex=True)
+        df[column] = df[column].str.replace(r"(?i)M&N", "HDFC", regex=True)
     df['Target_Banking_Response'] = df['Target_Banking_Response'].str.replace("the bank", "HDFC Bank", case=False)
     df['Target_Banking_Response'] = df['Target_Banking_Response'].str.replace("our institution", "HDFC Bank", case=False)
 
