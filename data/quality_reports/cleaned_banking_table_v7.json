@@ -1,0 +1,37 @@
+{
+  "source": "data/BankFAQs.csv",
+  "raw_rows": 1773,
+  "rows_with_missing_fields": 0,
+  "pii_masks_applied": {
+    "MASKED_ACCOUNT_OR_CARD": 2,
+    "MASKED_PHONE_NUMBER": 0,
+    "MASKED_EMAIL": 0,
+    "MASKED_SECRET": 0
+  },
+  "near_duplicates_removed": 73,
+  "exact_duplicates_removed": 295,
+  "question_groups": 1203,
+  "largest_question_group": 9,
+  "split_rows": {
+    "train": 1124,
+    "validation": 141,
+    "test": 140
+  },
+  "contamination": {
+    "test_rows": 140,
+    "max_similarity_to_train": 0.949,
+    "test_rows_at_or_above_0.95": 0,
+    "test_rows_at_or_above_0.90": 34
+  },
+  "answer_words": {
+    "min": 1,
+    "median": 33,
+    "max": 815
+  },
+  "delta_table": "data/s3_storage_vault/cleaned_banking_table",
+  "delta_version": 7,
+  "final_rows": 1405,
+  "rows_per_task": {
+    "faq": 1405
+  }
+}
