@@ -16,10 +16,10 @@ except Exception as e:
   faq_index=None
 class AgentState(TypedDict):
   customer_query:str
-  scrubbed_qurey:str
+  scrubbed_query:str
   security_status:str
   intent_classification:str
-  retrieved_conext:str
+  retrieved_context:str
   policy_flags:List[str]
   citations:List[Dict[str,Any]]
   confidence:str
@@ -42,8 +42,8 @@ def input_safety_guardrail_node(state:AgentState)-> Dict[str,Any]:
   elif "transaction_request" in triggered_flags:
     security_verdict="TRANSACTION_REQUEST_VIOLATION"
 
-  return {
-    "scrubbed_query":clean_search_query,
+  return {  
+    "scrubbed_query": clean_search_query,
     "security_status":security_verdict,
     "policy_flags":current_flags
   }
@@ -51,7 +51,7 @@ def input_safety_guardrail_node(state:AgentState)-> Dict[str,Any]:
 # Node 2: The Sorter (Triage)
 
 def domain_triage_node(state:AgentState) -> Dict[str,Any]:
-  query=state["scrubbed_qurey"].lower().strip()
+  query=state["scrubbed_query"].lower().strip()
   off_topic_triggers=["reciepe","politics","weather","election","cricket","movie"]
   if any(trigger in query for trigger in off_topic_triggers):
     return {"intent_classification":"out_of_scope"}
@@ -74,7 +74,7 @@ def domain_triage_node(state:AgentState) -> Dict[str,Any]:
   if highest_score==0:
     detected_intent= "general_banking_query"
   else:
-    winning_domains=[domain for domain,score in domain_scores.iteams()if score==highest_score]
+    winning_domains=[domain for domain,score in domain_scores.items()if score==highest_score]
     primary_match=winning_domains[0]
 
     intent_mapping={
@@ -162,7 +162,7 @@ def response_generation_node(state: AgentState) -> Dict[str, Any]:
     current_flags = list(state.get("policy_flags", []))
     citations = list(state.get("citations", []))
     context = state.get("retrieved_context", "")
-    query = state["scrubbed_query"]
+    query = state["scrubbed_query"].lower().strip()
     
     escalation = state.get("escalation_required", False)
     confidence = state.get("confidence", "high")
