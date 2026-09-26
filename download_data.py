@@ -1,29 +1,37 @@
-import os
+from pathlib import Path
 import shutil
 import kagglehub
+import requests
 
-print("📥 Fetching the raw BankFAQs dataset from Kaggle...")
+print("[INFO] Downloading BankFAQs dataset...")
 
-# 1. Download the latest version into the hidden local cache folder
-cache_path = kagglehub.dataset_download("somanathkshirasagar/bankfaqs")
-print(f"📍 Hidden Cache Location: {cache_path}")
+cache_path = Path(
+    kagglehub.dataset_download("somanathkshirasagar/bankfaqs")
+)
 
-# 2. Define your project's local data directory path
-destination_dir = "data"
-destination_file = os.path.join(destination_dir, "BankFAQs.csv")
+destination = Path("data/BankFAQs.csv")
+destination.parent.mkdir(parents=True, exist_ok=True)
 
-# Create the data folder automatically if it doesn't exist yet
-if not os.path.exists(destination_dir):
-    os.makedirs(destination_dir)
+matches = list(cache_path.rglob("*.csv"))
 
-# 3. Physically pull the CSV file out of the hidden cache and save it locally
-source_file = os.path.join(cache_path, "BankFAQs.csv")
+if not matches:
+    raise FileNotFoundError(
+        f"[ERROR] No CSV file found inside: {cache_path}"
+    )
 
-if os.path.exists(source_file):
-    shutil.copy(source_file, destination_file)
-    print(f"✅ Success! Raw dataset copied straight to: {destination_file}")
-    print(f"📊 Workspace Layout: data/BankFAQs.csv is ready.")
-else:
-    print("⚠️ Error: BankFAQs.csv was not found inside the cache path. Please check if the dataset was downloaded correctly.")
-    
-    
+source = matches[0]
+shutil.copy2(source, destination)
+
+print(f"[SUCCESS] Dataset saved to: {destination}")
+
+# Banking77 (PolyAI, CC BY 4.0): customer messages labelled with 77 intents.
+# The official train split is used for fine-tuning, the official test split only for evaluation.
+BANKING77_URL = "https://raw.githubusercontent.com/PolyAI-LDN/task-specific-datasets/master/banking_data/{split}.csv"
+
+print("[INFO] Downloading Banking77 dataset...")
+for split in ("train", "test"):
+    response = requests.get(BANKING77_URL.format(split=split), timeout=60)
+    response.raise_for_status()
+    split_destination = Path(f"data/banking77_{split}.csv")
+    split_destination.write_bytes(response.content)
+    print(f"[SUCCESS] Banking77 {split} split saved to: {split_destination}")
