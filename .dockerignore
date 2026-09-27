@@ -1,0 +1,15 @@
+# Keep the image small and free of local data: models come from Hugging Face at startup
+.git
+models/
+data/
+mlruns/
+mlflow.db
+reports/
+*.log
+test_output.txt
+__pycache__/
+*.pyc
+.env
+.venv/
+hdfc_env/
+tests/
