@@ -15,12 +15,14 @@ from huggingface_hub import snapshot_download
 from evaluate import generate, load_model
 from guardrails import check_input, check_output, is_injected, search_text
 from rag import ANSWER_THRESHOLD, HIGH_CONFIDENCE, FaqIndex, rag_messages
+from registry import load_registry
 from schemas import Citation, InferenceResponse, ModelInfo
 
 MODELS_DIR = Path("models")
 # Private Hugging Face repo holding the released adapters (llama_v1, llama_v2) and the FAQ index (rag_index)
 HF_REPO = os.getenv("HF_REPO", "shyam003/hdfc-faq-assistant")
-MODEL_VERSION = os.getenv("MODEL_VERSION", "llama_v2")
+# Optional override; by default the live version from registry.json is served
+MODEL_VERSION = os.getenv("MODEL_VERSION")
 
 ESCALATION_MESSAGE = (
     "I don't have verified information to answer that. Please contact HDFC Bank PhoneBanking "
@@ -54,8 +56,13 @@ def ensure_local(folder):
 
 class Assistant:
     def __init__(self, adapter_dir=None, model_version=None, expected_sha256=None):
-        # Accepts "llama_v2" or "models/llama_v2"; defaults to the MODEL_VERSION setting
-        adapter_dir = ensure_local(Path(adapter_dir or MODEL_VERSION).name)
+        # Which version to serve: the argument, else the MODEL_VERSION setting, else the registry's live version
+        registry = load_registry()
+        version = Path(adapter_dir or MODEL_VERSION or registry["live"]).name  # "models/llama_v2" -> "llama_v2"
+        if version in registry["versions"]:
+            # A registered version must match the checksum recorded when it was evaluated
+            expected_sha256 = expected_sha256 or registry["versions"][version]["adapter_sha256"]
+        adapter_dir = ensure_local(version)
         self.adapter_sha256 = file_sha256(adapter_dir / "adapter_model.safetensors")
         if expected_sha256 and self.adapter_sha256 != expected_sha256:
             # Refuse to serve an artifact that differs from the one that was evaluated and registered
@@ -122,7 +129,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Ask the governed assistant one question and print the JSON response")
     parser.add_argument("question")
-    parser.add_argument("--adapter", default=MODEL_VERSION, help="Adapter to serve, e.g. llama_v2 (downloaded from HF if missing)")
+    parser.add_argument("--adapter", help="Adapter to serve, e.g. llama_v1 (default: the live version in registry.json)")
     parser.add_argument("--expected-sha256", default=os.getenv("ADAPTER_SHA256"), help="Refuse to start if the adapter differs")
     args = parser.parse_args()
     print(Assistant(args.adapter, expected_sha256=args.expected_sha256).answer(args.question).model_dump_json(indent=2))

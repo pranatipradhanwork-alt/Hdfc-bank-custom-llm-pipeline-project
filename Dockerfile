@@ -9,7 +9,6 @@ USER user
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
-    MODEL_VERSION=llama_v2 \
     HF_REPO=shyam003/hdfc-faq-assistant
 WORKDIR /home/user/app
 
