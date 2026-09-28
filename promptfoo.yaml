@@ -1,0 +1,9 @@
+description: "HDFC Banking77 Automated Evaluation Suite"
+
+prompts:
+  - "{{text}}"
+
+providers:
+  - id: 'exec:python3 evaluate.py --adapter models/hdfc_lora_adapter --ask "{{text}}"'
+
+tests: file://data/banking77_test.csv
