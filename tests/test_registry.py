@@ -2,7 +2,7 @@ import shutil
 
 import pytest
 
-from registry import load_registry, promote, rollback, save_registry
+from registry import load_registry, promote, register_model, rollback, save_registry, set_status
 
 
 @pytest.fixture
@@ -37,6 +37,25 @@ def test_promote_makes_version_live(registry_file):
 def test_promote_rejects_unknown_version(registry_file):
     with pytest.raises(ValueError):
         promote("llama_v99", registry_file)
+
+
+def test_registered_model_starts_pending_and_cannot_go_live(registry_file):
+    entry = register_model("llama_v3", "llama_v3", "a" * 64, {"rougeL_finetuned_with_rag": 0.5}, path=registry_file)
+    assert entry["status"] == "pending"
+    with pytest.raises(ValueError):
+        promote("llama_v3", registry_file)
+
+
+def test_approved_model_can_be_promoted(registry_file):
+    register_model("llama_v3", "llama_v3", "a" * 64, {}, path=registry_file)
+    set_status("llama_v3", "approved", "model-risk-lead", registry_file)
+    assert promote("llama_v3", registry_file)["live"] == "llama_v3"
+
+
+def test_live_model_cannot_be_rejected(registry_file):
+    live = load_registry(registry_file)["live"]
+    with pytest.raises(ValueError):
+        set_status(live, "rejected", "model-risk-lead", registry_file)
 
 
 def test_promote_rejects_unapproved_version(registry_file):

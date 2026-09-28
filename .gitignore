@@ -28,3 +28,7 @@ test_output.txt
 
 # Local evaluation output (scores are summarised in README.md and logged to MLflow)
 reports/
+
+# Runtime logs written by the server (trace ids and feedback)
+control/requests.jsonl
+control/feedback.jsonl

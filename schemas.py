@@ -29,6 +29,48 @@ class ModelInfo(BaseModel):
     embed_model: str
 
 
+class DatasetRegisterRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=100)
+    source: str = Field(description="Where the data comes from, e.g. a file or system of record")
+    owner: str = Field(description="Accountable data owner")
+    purpose: Literal["customer_faq"] = Field(description="Approved use this data may be trained for")
+    classification: Literal["public", "internal", "confidential", "restricted"]
+    permission_basis: str = Field(description="Why the bank may use this data for this purpose")
+    retention: str = Field(description="How long the data and its derivatives may be kept")
+
+
+class DatasetApproveRequest(BaseModel):
+    approved_by: str = Field(min_length=1)
+
+
+class RunRequest(BaseModel):
+    name: str = Field(pattern=r"^[a-z0-9_]+$", description="Run and adapter folder name, e.g. llama_v3")
+    dataset_id: str
+    base_model: str
+    config: str = "configs/training/cuda-qlora.yaml"
+    seed: int = 42
+
+
+class ModelRegisterRequest(BaseModel):
+    version: str = Field(pattern=r"^[a-z0-9_]+$")
+    run_id: str = Field(description="Completed training run that produced the adapter")
+    adapter_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    evaluation: dict = Field(description="Evaluation scores for the release decision")
+    notes: str = ""
+
+
+class ModelReviewRequest(BaseModel):
+    status: Literal["approved", "rejected"]
+    reviewer: str = Field(min_length=1)
+
+
+class FeedbackRequest(BaseModel):
+    trace_id: str
+    rating: Literal["good", "bad"]
+    comment: str = Field("", max_length=1000)
+    reviewer: str = "reviewer"
+
+
 class InferenceResponse(BaseModel):
     trace_id: str
     answer: str

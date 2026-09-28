@@ -4,6 +4,7 @@
   "versions": {
     "llama_v1": {
       "status": "approved",
+      "run_id": "llama_v1",
       "base_model": "meta-llama/Llama-3.2-1B-Instruct",
       "adapter_sha256": "04ce69649442ab1f06226e6cf3d3d585f38665b9c3fcdb883e782dd48cc21ba9",
       "hf_repo_folder": "llama_v1",
@@ -26,6 +27,7 @@
     },
     "llama_v2": {
       "status": "approved",
+      "run_id": "llama_v2",
       "base_model": "meta-llama/Llama-3.2-1B-Instruct",
       "adapter_sha256": "16e4545e77faa44b4631a5979cba62205c183c849cfd0e5be766512072e0a0e6",
       "hf_repo_folder": "llama_v2",

@@ -28,6 +28,39 @@ def live_version(path=REGISTRY_PATH):
     return registry["live"], registry["versions"][registry["live"]]
 
 
+def register_model(version, run_id, adapter_sha256, evaluation, notes="", path=REGISTRY_PATH):
+    """Add a new candidate. It starts as 'pending' and cannot go live until it is approved."""
+    registry = load_registry(path)
+    if version in registry["versions"]:
+        raise ValueError(f"{version} is already registered")
+    registry["versions"][version] = {
+        "status": "pending",
+        "run_id": run_id,
+        "adapter_sha256": adapter_sha256,
+        "hf_repo_folder": version,
+        "evaluation": evaluation,
+        "notes": notes,
+    }
+    record(registry, "register", None, version)
+    save_registry(registry, path)
+    return registry["versions"][version]
+
+
+def set_status(version, status, reviewer, path=REGISTRY_PATH):
+    """Approve or reject a candidate after reviewing its evaluation evidence."""
+    registry = load_registry(path)
+    if version not in registry["versions"]:
+        raise ValueError(f"Unknown model version: {version}")
+    if status not in ("approved", "rejected"):
+        raise ValueError("Status must be 'approved' or 'rejected'")
+    if status == "rejected" and version == registry["live"]:
+        raise ValueError("The live version cannot be rejected; promote or roll back first")
+    registry["versions"][version]["status"] = status
+    record(registry, status, None, version, reviewer)
+    save_registry(registry, path)
+    return registry["versions"][version]
+
+
 def promote(version, path=REGISTRY_PATH):
     registry = load_registry(path)
     if version not in registry["versions"]:
@@ -54,13 +87,16 @@ def rollback(path=REGISTRY_PATH):
     return registry
 
 
-def record(registry, action, from_version, to_version):
-    registry["history"].append({
+def record(registry, action, from_version, to_version, by=None):
+    entry = {
         "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "action": action,
         "from": from_version,
         "to": to_version,
-    })
+    }
+    if by:
+        entry["by"] = by
+    registry["history"].append(entry)
 
 
 if __name__ == "__main__":
