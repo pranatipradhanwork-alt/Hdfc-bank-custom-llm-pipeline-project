@@ -182,6 +182,10 @@ def feedback(request: FeedbackRequest, x_api_key: str = Header(None)):
     return run_action(control_plane.add_feedback, request.trace_id, request.rating, request.comment, request.reviewer)
 
 
-# The UI calls the same assistant as the API. The lambda looks up `assistant` on every call,
+# The UI uses the same functions as the API. The lambdas look up `assistant` on every call,
 # so after a promote or rollback the UI uses the new model too.
-app = gr.mount_gradio_app(app, build_ui(lambda question: answer_and_log(question)), path="/")
+ui = build_ui(answer_question=lambda question: answer_and_log(question),
+              current_model=lambda: assistant.info,
+              reload_model=reload_live_model,
+              admin_key=ADMIN_KEY)
+app = gr.mount_gradio_app(app, ui, path="/")
