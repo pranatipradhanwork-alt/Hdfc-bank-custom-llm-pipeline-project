@@ -3,7 +3,6 @@
 accelerate==1.15.0
 deltalake==1.6.3
 fastapi==0.141.1
-gradio==6.28.0
 huggingface_hub==1.31.0
 mlflow-skinny==3.16.0
 numpy==2.5.3

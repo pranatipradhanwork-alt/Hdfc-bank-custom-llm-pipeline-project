@@ -39,8 +39,13 @@ class DatasetRegisterRequest(BaseModel):
     retention: str = Field(description="How long the data and its derivatives may be kept")
 
 
-class DatasetApproveRequest(BaseModel):
-    approved_by: str = Field(min_length=1)
+class LoginRequest(BaseModel):
+    username: str = Field(min_length=1, max_length=50)
+    password: str = Field(min_length=1, max_length=200)
+
+
+class AssignRequest(BaseModel):
+    assistants: list[str] = Field(description="Assistant ids this user may use, e.g. ['customer_faq']")
 
 
 class RunRequest(BaseModel):
@@ -61,14 +66,12 @@ class ModelRegisterRequest(BaseModel):
 
 class ModelReviewRequest(BaseModel):
     status: Literal["approved", "rejected"]
-    reviewer: str = Field(min_length=1)
 
 
 class FeedbackRequest(BaseModel):
     trace_id: str
     rating: Literal["good", "bad"]
     comment: str = Field("", max_length=1000)
-    reviewer: str = "reviewer"
 
 
 class InferenceResponse(BaseModel):

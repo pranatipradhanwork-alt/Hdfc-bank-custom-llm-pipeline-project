@@ -1,0 +1,31 @@
+[
+  {
+    "username": "admin",
+    "name": "Platform Admin",
+    "role": "admin",
+    "team": "AI Governance",
+    "assistants": [],
+    "password_hash": "515aa0a23ed7d6ddc0a09174a7fae94f4258bd9fe5c6bac858b676fe8ad23d04",
+    "salt": "1fd10337108001e6ff2044d3b1113d23"
+  },
+  {
+    "username": "engineer",
+    "name": "AI Platform Engineer",
+    "role": "ai_engineer",
+    "team": "AI/ML Platform",
+    "assistants": [],
+    "password_hash": "fc2f868029d1bf06ab6badfbb2f05d142e69eb70d9037b93a49b50695ed11e78",
+    "salt": "a51404b8cae318ae5d610f146d564642"
+  },
+  {
+    "username": "employee",
+    "name": "Support Agent",
+    "role": "employee",
+    "team": "Retail Banking - Customer Support",
+    "assistants": [
+      "customer_faq"
+    ],
+    "password_hash": "805cf58fa5cdaa6bedf1a7702268a686ea7c78a6215c32ebdddc4d4cf47b35a2",
+    "salt": "0c870006c4ba32c01e2c92f64bde5b23"
+  }
+]

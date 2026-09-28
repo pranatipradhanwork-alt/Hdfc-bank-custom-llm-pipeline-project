@@ -32,3 +32,4 @@ reports/
 # Runtime logs written by the server (trace ids and feedback)
 control/requests.jsonl
 control/feedback.jsonl
+control/audit.jsonl

@@ -20,6 +20,7 @@ DATASETS_FILE = CONTROL_DIR / "datasets.json"
 RUNS_FILE = CONTROL_DIR / "runs.json"
 REQUESTS_FILE = CONTROL_DIR / "requests.jsonl"
 FEEDBACK_FILE = CONTROL_DIR / "feedback.jsonl"
+AUDIT_FILE = CONTROL_DIR / "audit.jsonl"
 QUALITY_REPORTS_DIR = Path("data/quality_reports")
 
 APPROVED_BASE_MODELS = ["meta-llama/Llama-3.2-1B-Instruct", "Qwen/Qwen2.5-0.5B-Instruct"]
@@ -196,12 +197,25 @@ def sync_runs_from_mlflow(tracking_uri="sqlite:///mlflow.db", experiment="hdfc-b
     return ordered
 
 
+# ---------- Audit log ----------
+
+def audit(user, action, resource, result, detail=""):
+    """Record who did what, to which resource, and whether it succeeded."""
+    append_line(AUDIT_FILE, {"time": now(), "user": user, "action": action, "resource": resource,
+                             "result": result, "detail": detail})
+
+
+def audit_log():
+    return list(reversed(read_lines(AUDIT_FILE)))
+
+
 # ---------- Served requests and feedback ----------
 
-def log_request(response):
+def log_request(response, user, assistant_id):
     # Identifiers and outcomes only: the customer's question is not stored
     append_line(REQUESTS_FILE, {
-        "trace_id": response.trace_id, "time": now(), "model_version": response.model.model_version,
+        "trace_id": response.trace_id, "time": now(), "user": user, "assistant": assistant_id,
+        "model_version": response.model.model_version,
         "adapter_sha256": response.model.adapter_sha256, "confidence": response.confidence,
         "escalation_required": response.escalation_required, "policy_flags": response.policy_flags,
         "latency_ms": response.latency_ms,
@@ -213,6 +227,27 @@ def find_request(trace_id):
         if request["trace_id"] == trace_id:
             return request
     raise KeyError(f"Unknown trace id: {trace_id}")
+
+
+def monitoring_summary():
+    """Counts and averages from the request log, for the Monitoring page."""
+    requests = read_lines(REQUESTS_FILE)
+    feedback = read_lines(FEEDBACK_FILE)
+    answered = [r for r in requests if not r["escalation_required"]]
+    flags = {}
+    for request in requests:
+        for flag in request["policy_flags"]:
+            flags[flag] = flags.get(flag, 0) + 1
+    return {
+        "requests": len(requests),
+        "answered": len(answered),
+        "escalated": len(requests) - len(answered),
+        "avg_latency_ms": round(sum(r["latency_ms"] for r in requests) / len(requests)) if requests else None,
+        "policy_flags": flags,
+        "feedback_good": sum(1 for f in feedback if f["rating"] == "good"),
+        "feedback_bad": sum(1 for f in feedback if f["rating"] == "bad"),
+        "recent": list(reversed(requests[-50:])),
+    }
 
 
 def add_feedback(trace_id, rating, comment="", reviewer="reviewer"):

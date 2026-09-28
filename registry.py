@@ -61,7 +61,7 @@ def set_status(version, status, reviewer, path=REGISTRY_PATH):
     return registry["versions"][version]
 
 
-def promote(version, path=REGISTRY_PATH):
+def promote(version, path=REGISTRY_PATH, by=None):
     registry = load_registry(path)
     if version not in registry["versions"]:
         raise ValueError(f"Unknown model version: {version}")
@@ -71,18 +71,18 @@ def promote(version, path=REGISTRY_PATH):
     if version == registry["live"]:
         return registry
     registry["previous"], registry["live"] = registry["live"], version
-    record(registry, "promote", registry["previous"], version)
+    record(registry, "promote", registry["previous"], version, by)
     save_registry(registry, path)
     return registry
 
 
-def rollback(path=REGISTRY_PATH):
+def rollback(path=REGISTRY_PATH, by=None):
     registry = load_registry(path)
     if not registry.get("previous"):
         raise ValueError("No previous version to roll back to")
     # Swap live and previous, so a second rollback undoes the first
     registry["live"], registry["previous"] = registry["previous"], registry["live"]
-    record(registry, "rollback", registry["previous"], registry["live"])
+    record(registry, "rollback", registry["previous"], registry["live"], by)
     save_registry(registry, path)
     return registry
 

@@ -1,0 +1,8 @@
+{
+  "customer_faq": {
+    "name": "Customer Support FAQ Assistant",
+    "description": "Answers customer questions about HDFC Bank products and services from approved FAQs, with citations.",
+    "purpose": "customer_faq",
+    "owner": "customer-support-faq-owner"
+  }
+}
