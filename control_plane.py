@@ -10,6 +10,7 @@ Worker commands (run after the heavy job finishes):
 """
 import argparse
 import json
+import os
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -305,11 +306,20 @@ def audit_log():
 def log_request(response, user, assistant_id):
     # Identifiers and outcomes only: the customer's question is not stored
     append_line(REQUESTS_FILE, {
-        "trace_id": response.trace_id, "time": now(), "user": user, "assistant": assistant_id,
+        "trace_id": response.trace_id, "time": now(), "user": user, "assistant": assistant_id, "ok": True,
         "model_version": response.model.model_version,
         "adapter_sha256": response.model.adapter_sha256, "confidence": response.confidence,
         "escalation_required": response.escalation_required, "policy_flags": response.policy_flags,
         "latency_ms": response.latency_ms,
+    })
+
+
+def log_failed_request(trace_id, user, assistant_id, model_version, latency_ms, error):
+    """A request the gateway could not answer (a server error), so the success-rate SLO counts it."""
+    append_line(REQUESTS_FILE, {
+        "trace_id": trace_id, "time": now(), "user": user, "assistant": assistant_id, "ok": False,
+        "model_version": model_version, "adapter_sha256": None, "confidence": None, "escalation_required": True,
+        "policy_flags": [], "latency_ms": latency_ms, "error": type(error).__name__,
     })
 
 
@@ -320,25 +330,107 @@ def find_request(trace_id):
     raise KeyError(f"Unknown trace id: {trace_id}")
 
 
+# Service level objectives: the targets the gateway is held to (checked over the last 24 hours)
+SLO_WINDOW_HOURS = 24
+SLO_SUCCESS_RATE = 0.99                                            # requests answered without a server error
+SLO_P95_LATENCY_MS = int(os.getenv("SLO_P95_LATENCY_MS", "30000"))  # 95% of answers within this time (GPU target)
+SLO_MAX_BAD_FEEDBACK = 0.20                                        # share of rated answers marked bad
+
+
+def percentile(values, share):
+    """Value below which `share` of the sorted values fall (nearest-rank method)."""
+    if not values:
+        return None
+    ordered = sorted(values)
+    return ordered[max(0, round(share * len(ordered)) - 1)]
+
+
+def within_window(records, hours=SLO_WINDOW_HOURS):
+    cutoff = datetime.now(timezone.utc).timestamp() - hours * 3600
+    return [r for r in records if datetime.fromisoformat(r["time"]).timestamp() >= cutoff]
+
+
+def check_slos(requests, feedback):
+    """Each SLO as {name, target, actual, status}; status is met, breached, or no_data."""
+    ok = [r for r in requests if r.get("ok", True)]
+    success_rate = len(ok) / len(requests) if requests else None
+    p95 = percentile([r["latency_ms"] for r in ok], 0.95)
+    rated = len(feedback)
+    bad_share = sum(1 for f in feedback if f["rating"] == "bad") / rated if rated else None
+
+    def status(actual, is_met):
+        return "no_data" if actual is None else ("met" if is_met else "breached")
+
+    return [
+        {"name": "Success rate", "target": f">= {SLO_SUCCESS_RATE:.0%}",
+         "actual": None if success_rate is None else f"{success_rate:.1%}",
+         "status": status(success_rate, success_rate is not None and success_rate >= SLO_SUCCESS_RATE)},
+        {"name": "p95 answer time", "target": f"<= {SLO_P95_LATENCY_MS / 1000:.0f} s",
+         "actual": None if p95 is None else f"{p95 / 1000:.1f} s",
+         "status": status(p95, p95 is not None and p95 <= SLO_P95_LATENCY_MS)},
+        {"name": "Bad feedback", "target": f"<= {SLO_MAX_BAD_FEEDBACK:.0%} of rated answers",
+         "actual": None if bad_share is None else f"{bad_share:.0%} of {rated}",
+         "status": status(bad_share, bad_share is not None and bad_share <= SLO_MAX_BAD_FEEDBACK)},
+    ]
+
+
 def monitoring_summary():
-    """Counts and averages from the request log, for the Monitoring page."""
+    """Counts, latency percentiles and SLO status from the request log, for the Monitoring page."""
     requests = read_lines(REQUESTS_FILE)
     feedback = read_lines(FEEDBACK_FILE)
-    answered = [r for r in requests if not r["escalation_required"]]
+    ok = [r for r in requests if r.get("ok", True)]
+    answered = [r for r in ok if not r["escalation_required"]]
     flags = {}
     for request in requests:
         for flag in request["policy_flags"]:
             flags[flag] = flags.get(flag, 0) + 1
+    latencies = [r["latency_ms"] for r in ok]
     return {
         "requests": len(requests),
+        "failed": len(requests) - len(ok),
         "answered": len(answered),
-        "escalated": len(requests) - len(answered),
-        "avg_latency_ms": round(sum(r["latency_ms"] for r in requests) / len(requests)) if requests else None,
+        "escalated": len(ok) - len(answered),
+        "avg_latency_ms": round(sum(latencies) / len(latencies)) if latencies else None,
+        "p50_latency_ms": percentile(latencies, 0.50),
+        "p95_latency_ms": percentile(latencies, 0.95),
         "policy_flags": flags,
         "feedback_good": sum(1 for f in feedback if f["rating"] == "good"),
         "feedback_bad": sum(1 for f in feedback if f["rating"] == "bad"),
+        "slo_window_hours": SLO_WINDOW_HOURS,
+        "slos": check_slos(within_window(requests), within_window(feedback)),
         "recent": list(reversed(requests[-50:])),
     }
+
+
+def prometheus_metrics(live_model):
+    """The same numbers in Prometheus text format, so a Prometheus server can scrape /metrics."""
+    requests = read_lines(REQUESTS_FILE)
+    summary = monitoring_summary()
+    lines = ["# HELP hdfc_requests_total Gateway requests by assistant and outcome.",
+             "# TYPE hdfc_requests_total counter"]
+    counts = {}
+    for r in requests:
+        outcome = "failed" if not r.get("ok", True) else ("escalated" if r["escalation_required"] else "answered")
+        key = (r.get("assistant", "customer_faq"), outcome)
+        counts[key] = counts.get(key, 0) + 1
+    for (assistant, outcome), value in sorted(counts.items()):
+        lines.append(f'hdfc_requests_total{{assistant="{assistant}",outcome="{outcome}"}} {value}')
+    lines += ["# HELP hdfc_policy_flags_total Guardrail events by type.", "# TYPE hdfc_policy_flags_total counter"]
+    lines += [f'hdfc_policy_flags_total{{flag="{flag}"}} {n}' for flag, n in sorted(summary["policy_flags"].items())]
+    lines += ["# HELP hdfc_answer_latency_seconds Answer time percentiles.", "# TYPE hdfc_answer_latency_seconds gauge"]
+    for name, quantile in (("p50", "0.5"), ("p95", "0.95")):
+        value = summary[f"{name}_latency_ms"]
+        if value is not None:
+            lines.append(f'hdfc_answer_latency_seconds{{quantile="{quantile}"}} {value / 1000:.3f}')
+    lines += ["# HELP hdfc_slo_met 1 when the SLO is met, 0 when breached (absent when there is no data).",
+              "# TYPE hdfc_slo_met gauge"]
+    for slo in summary["slos"]:
+        if slo["status"] != "no_data":
+            label = slo["name"].lower().replace(" ", "_")
+            lines.append(f'hdfc_slo_met{{slo="{label}"}} {1 if slo["status"] == "met" else 0}')
+    lines += ["# HELP hdfc_live_model Model version currently served.", "# TYPE hdfc_live_model gauge",
+              f'hdfc_live_model{{version="{live_model}"}} 1']
+    return "\n".join(lines) + "\n"
 
 
 def add_feedback(trace_id, rating, comment="", reviewer="reviewer"):

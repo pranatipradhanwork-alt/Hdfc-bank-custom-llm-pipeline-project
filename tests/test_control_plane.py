@@ -159,6 +159,44 @@ def test_assistant_lifecycle(team_setup):
         control_plane.review_assistant("fd_assistant", "rejected", "admin")
 
 
+def request(latency_ms, ok=True, escalated=False, flags=()):
+    return {"trace_id": "t", "time": control_plane.now(), "user": "u", "assistant": "customer_faq", "ok": ok,
+            "model_version": "llama_v2", "escalation_required": escalated, "policy_flags": list(flags),
+            "latency_ms": latency_ms, "confidence": "high"}
+
+
+def test_percentile_nearest_rank():
+    assert control_plane.percentile([10, 20, 30, 40], 0.5) == 20
+    assert control_plane.percentile(list(range(1, 101)), 0.95) == 95
+    assert control_plane.percentile([], 0.95) is None
+
+
+def test_slos_met():
+    slos = control_plane.check_slos([request(5000) for _ in range(100)], [{"rating": "good"}] * 5)
+    assert [s["status"] for s in slos] == ["met", "met", "met"]
+
+
+def test_slos_breached():
+    requests = [request(60000) for _ in range(95)] + [request(1000, ok=False) for _ in range(5)]
+    feedback = [{"rating": "bad"}] * 3 + [{"rating": "good"}]
+    assert [s["status"] for s in control_plane.check_slos(requests, feedback)] == ["breached", "breached", "breached"]
+
+
+def test_slos_without_data():
+    assert [s["status"] for s in control_plane.check_slos([], [])] == ["no_data", "no_data", "no_data"]
+
+
+def test_failed_requests_count_in_summary_and_metrics():
+    control_plane.append_line(control_plane.REQUESTS_FILE, request(4000, flags=["prompt_injection"]))
+    control_plane.log_failed_request("x1", "u", "customer_faq", "llama_v2", 120, RuntimeError("boom"))
+    summary = control_plane.monitoring_summary()
+    assert summary["requests"] == 2 and summary["failed"] == 1
+    metrics = control_plane.prometheus_metrics("llama_v2")
+    assert 'hdfc_requests_total{assistant="customer_faq",outcome="failed"} 1' in metrics
+    assert 'hdfc_policy_flags_total{flag="prompt_injection"} 1' in metrics
+    assert 'hdfc_live_model{version="llama_v2"} 1' in metrics
+
+
 def test_feedback_links_to_model_version():
     control_plane.append_line(control_plane.REQUESTS_FILE, {"trace_id": "abc123", "model_version": "llama_v2"})
     feedback = control_plane.add_feedback("abc123", "bad", "Answered from the wrong FAQ")

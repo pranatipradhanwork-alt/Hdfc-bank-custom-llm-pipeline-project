@@ -5,10 +5,12 @@ Web UI:       http://localhost:7860/
 API docs:     http://localhost:7860/docs
 """
 import os
+import time
+import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 
 import auth
 import control_plane
@@ -23,6 +25,8 @@ app = FastAPI(title="HDFC AI Platform API", version="1.0")
 
 # Applications (not people) call the gateway with this key. It comes from the environment, never from code.
 APP_KEY = os.getenv("APP_KEY")
+# Optional token Prometheus sends when scraping /metrics
+METRICS_TOKEN = os.getenv("METRICS_TOKEN")
 
 # Load the live model once when the server starts (takes ~30 seconds)
 assistant = Assistant()
@@ -256,6 +260,14 @@ def monitoring(authorization: str = Header(None)):
     return control_plane.monitoring_summary()
 
 
+@app.get("/metrics", include_in_schema=False)
+def metrics(authorization: str = Header(None)):
+    """Prometheus scrape endpoint. If METRICS_TOKEN is set, Prometheus must send it as a bearer token."""
+    if METRICS_TOKEN and (authorization or "") != f"Bearer {METRICS_TOKEN}":
+        raise HTTPException(status_code=401, detail="Metrics token required")
+    return PlainTextResponse(control_plane.prometheus_metrics(assistant.info.model_version))
+
+
 @app.get("/v1/audit")
 def audit_log(authorization: str = Header(None)):
     require(authorization, "view_platform")
@@ -338,7 +350,16 @@ def gateway_caller(authorization, x_api_key, assistant_id):
 @app.post("/v1/inference", response_model=InferenceResponse)
 def inference(request: InferenceRequest, authorization: str = Header(None), x_api_key: str = Header(None)):
     caller = gateway_caller(authorization, x_api_key, request.purpose)
-    response = assistant.answer(request.question, request.max_new_tokens, index=index_for(request.purpose))
+    started = time.perf_counter()
+    try:
+        response = assistant.answer(request.question, request.max_new_tokens, index=index_for(request.purpose))
+    except Exception as error:
+        # Record the failure for the success-rate SLO, then return a controlled error instead of a stack trace
+        trace_id = uuid.uuid4().hex
+        control_plane.log_failed_request(trace_id, caller, request.purpose, assistant.info.model_version,
+                                         round((time.perf_counter() - started) * 1000), error)
+        raise HTTPException(status_code=503, detail=f"The assistant could not answer right now (trace {trace_id}). "
+                                                    "Please try again or contact PhoneBanking.")
     control_plane.log_request(response, caller, request.purpose)
     return response
 

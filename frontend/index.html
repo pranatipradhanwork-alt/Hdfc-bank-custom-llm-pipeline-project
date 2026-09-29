@@ -1203,9 +1203,27 @@ function MonitoringPage() {
     <div className="fade-in">
       <PageHeader title="Monitoring" description="Gateway traffic, escalations, guardrail events and reviewer feedback. Customer questions are not stored, only identifiers and outcomes."
         action={<Button icon="refresh" onClick={monitoring.reload}>Refresh</Button>} />
+      <Card className="mb-6 p-6">
+        <SectionTitle>Service level objectives (last {m.slo_window_hours} hours)</SectionTitle>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {m.slos.map((slo) => (
+            <div key={slo.name} className="rounded-lg border border-ink-100 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-ink-800">{slo.name}</p>
+                <Badge status={slo.status === "met" ? "passed" : slo.status === "breached" ? "failed" : "ink"}>
+                  {slo.status === "met" ? "Met" : slo.status === "breached" ? "Breached" : "No data"}
+                </Badge>
+              </div>
+              <p className="mt-3 font-display text-2xl font-bold tabular-nums text-ink-900">{slo.actual || "-"}</p>
+              <p className="text-xs text-ink-400">Target {slo.target}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-ink-400">The same numbers are exported for Prometheus at <span className="font-mono">/metrics</span>.</p>
+      </Card>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat icon="activity" label="Requests" value={m.requests} sub={`${m.answered} answered, ${m.escalated} escalated`} />
-        <Stat icon="refresh" label="Average response" value={m.avg_latency_ms ? (m.avg_latency_ms / 1000).toFixed(1) + " s" : "-"} />
+        <Stat icon="activity" label="Requests" value={m.requests} sub={`${m.answered} answered, ${m.escalated} escalated, ${m.failed} failed`} />
+        <Stat icon="refresh" label="Answer time p50 / p95" value={m.p50_latency_ms ? `${(m.p50_latency_ms / 1000).toFixed(1)} / ${(m.p95_latency_ms / 1000).toFixed(1)} s` : "-"} sub={m.avg_latency_ms ? `average ${(m.avg_latency_ms / 1000).toFixed(1)} s` : ""} />
         <Stat icon="shield" label="Guardrail events" value={Object.values(m.policy_flags).reduce((a, b) => a + b, 0)} sub={Object.keys(m.policy_flags).length ? Object.keys(m.policy_flags).join(", ").replace(/_/g, " ") : "none"} />
         <Stat icon="thumbUp" label="Feedback" value={`${m.feedback_good} / ${m.feedback_bad}`} sub="good / bad" />
       </div>
@@ -1242,8 +1260,8 @@ function MonitoringPage() {
           { label: "Trace", render: (r) => <span className="font-mono text-xs">{r.trace_id.slice(0, 12)}</span> },
           { label: "Caller", render: (r) => r.user },
           { label: "Model", render: (r) => r.model_version },
-          { label: "Confidence", render: (r) => <Badge status={r.confidence} /> },
-          { label: "Outcome", render: (r) => r.escalation_required ? <Badge status="escalated">escalated</Badge> : <Badge status="success">answered</Badge> },
+          { label: "Confidence", render: (r) => r.confidence ? <Badge status={r.confidence} /> : "-" },
+          { label: "Outcome", render: (r) => r.ok === false ? <Badge status="failed">failed</Badge> : r.escalation_required ? <Badge status="escalated">escalated</Badge> : <Badge status="success">answered</Badge> },
           { label: "Latency", render: (r) => `${(r.latency_ms / 1000).toFixed(1)} s` },
         ]} />
       </Card>
