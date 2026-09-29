@@ -57,6 +57,15 @@ TRANSACTION_REQUEST = re.compile(
     r"|\b(for me|on my behalf)\b"
 )
 
+# --- Questions about other banks: the assistant only speaks for HDFC Bank ---
+# Found by the promptfoo suite: "How do I open an account at State Bank of India?" got an invented answer.
+# A question that also mentions HDFC ("move my SBI loan to HDFC") is still answered.
+OTHER_BANK = re.compile(
+    r"(?i)\b(state bank|sbi|icici|axis bank|kotak|punjab national|pnb|bank of baroda|canara bank|yes bank"
+    r"|indusind|idfc|union bank|bank of india|federal bank|citibank|hsbc|standard chartered)\b"
+)
+HDFC = re.compile(r"(?i)\bhdfc\b")
+
 # --- Output: the assistant asking the customer to hand over credentials ---
 CREDENTIAL_REQUEST = re.compile(
     r"(?i)\b(share|send|tell|give|provide|type|reply with)\b[^.\n]{0,40}\b(otp|pin|cvv|password|mpin|ipin)\b"
@@ -103,6 +112,8 @@ def check_input(question):
         flags.append("prompt_injection")
     if TRANSACTION_REQUEST.search(question):
         flags.append("transaction_request")
+    if OTHER_BANK.search(question) and not HDFC.search(question):
+        flags.append("other_bank")
     return masked, flags
 
 

@@ -34,6 +34,7 @@ REFUSALS = {
         "I can't carry out transactions or change your account. Please use NetBanking or MobileBanking, "
         "or contact HDFC Bank PhoneBanking."
     ),
+    "other_bank": "I can only answer questions about HDFC Bank. For another bank's products, please contact that bank.",
 }
 
 
@@ -96,7 +97,8 @@ class Assistant:
         # Blocked requests never reach the model
         for flag, refusal in REFUSALS.items():
             if flag in flags:
-                return respond(refusal, escalate=flag == "transaction_request", missing=f"Request not permitted: {flag}")
+                return respond(refusal, escalate=flag in ("transaction_request", "other_bank"),
+                               missing=f"Request not permitted: {flag}")
 
         retrieved = index.search([search_text(masked_question)])[0]
         # Source content is untrusted too: drop any FAQ carrying injected instructions

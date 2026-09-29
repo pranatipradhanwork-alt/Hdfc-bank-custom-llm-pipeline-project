@@ -67,7 +67,9 @@ Held-out test split (140 questions) and 30 hand-reworded questions. "Base" is Ll
   sentence). The output guardrail catches invented figures, not wrong wording. Always show the citations.
 - **Confidence measures retrieval, not correctness.** "High" means the question matches an FAQ closely,
   not that the generated answer is right.
-- **FAQ content is a snapshot.** Answers reflect the dataset, not current HDFC policy, fees or rates.
+- **FAQ content is a snapshot.** Answers reflect the dataset, not current HDFC policy, fees or rates. For example
+  the dataset states an FD interest rate of "7%" with no term or date; the promptfoo suite caught the model
+  presenting it as today's 5-year rate. Rates should come from a governed rates source with an effective date.
 - **English only**, single-turn questions.
 - **Speed:** about 40 seconds per answer on a laptop CPU; a GPU is needed for interactive use.
 
@@ -76,7 +78,10 @@ Held-out test split (140 questions) and 30 hand-reworded questions. "Base" is Ll
 - Never asks for or reveals OTPs, PINs, CVVs, passwords or full account numbers (enforced by the output guardrail).
 - Refuses prompt injection and transaction requests; FAQ text is treated as data, not instructions.
 - Personal data typed by a customer is masked before it reaches retrieval or the model.
-- Guardrail and registry behaviour is covered by `pytest tests` (15 tests).
+- Questions about other banks are refused unless they also mention HDFC (added after the promptfoo suite found an
+  invented answer about SBI).
+- Automated evidence: `pytest tests` (53 tests: guardrails, registry, control plane, login and roles) and the
+  promptfoo suite (35 / 35 on 29 Sep 2026, see `promptfoo/RESULTS.md`).
 
 ## Versions and rollback
 
