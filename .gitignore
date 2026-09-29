@@ -36,3 +36,6 @@ control/audit.jsonl
 
 # Local secrets for the docker-compose stack
 infrastructure/prometheus/metrics_token
+
+# promptfoo raw output (machine-generated; the summary is in promptfoo/RESULTS.md)
+promptfoo/results.json

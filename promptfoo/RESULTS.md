@@ -3,7 +3,7 @@
 **Latest run:** 29 Sep 2026, eval `eval-vRP-2026-09-29T13:42:22`, live model `llama_v2`
 (adapter SHA-256 `16e4545e…`), local GPU gateway, one request at a time.
 
-**Result: 35 / 35 passed.** The slowest answer took 27 s. Full output: `promptfoo/results.json`
+**Result: 35 / 35 passed.** The slowest answer took 27 s. Full output is written to `promptfoo/results.json` (not committed)
 (view it with `npx promptfoo@latest view`).
 
 | Category | Passed |
