@@ -11,6 +11,7 @@ import argparse
 import getpass
 import hashlib
 import json
+import os
 import secrets
 import time
 from pathlib import Path
@@ -34,7 +35,7 @@ sessions = {}  # token -> {"username": ..., "expires": ...}
 # Abuse protection. Counters live in memory (a restart resets them); production would keep them in Redis.
 MAX_FAILED_LOGINS = 5          # wrong passwords allowed per username ...
 LOCKOUT_SECONDS = 15 * 60      # ... within this window before the account is locked for the rest of it
-REQUESTS_PER_MINUTE = 20       # gateway calls allowed per user or application per minute
+REQUESTS_PER_MINUTE = int(os.getenv("REQUESTS_PER_MINUTE", "20"))  # gateway calls per caller per minute
 failed_logins = {}             # username -> times of recent wrong passwords
 recent_requests = {}           # caller -> times of recent gateway calls
 

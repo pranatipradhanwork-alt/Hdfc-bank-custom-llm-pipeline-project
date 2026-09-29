@@ -1,0 +1,49 @@
+# Local production-like stack: the platform + Prometheus (metrics) + Grafana (dashboards).
+#
+#   cp .env.example .env      # then fill in HF_TOKEN, APP_KEY, METRICS_TOKEN
+#   docker compose up --build
+#
+# App: http://localhost:7860   Prometheus: http://localhost:9090   Grafana: http://localhost:3000 (admin / admin)
+
+services:
+  app:
+    build: .
+    ports:
+      - "7860:7860"
+    env_file: .env
+    volumes:
+      # Keep downloaded model files between restarts, so the 2.5 GB base model is fetched once
+      - hf-cache:/home/user/.cache/huggingface
+      - models:/home/user/app/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7860/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 300s  # first start downloads the model
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infrastructure/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infrastructure/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - ./infrastructure/prometheus/metrics_token:/etc/prometheus/metrics_token:ro
+    depends_on:
+      - app
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./infrastructure/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infrastructure/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+volumes:
+  hf-cache:
+  models:

@@ -1,0 +1,29 @@
+# Alert when an SLO is breached or the gateway stops reporting. In production these would page the on-call engineer.
+groups:
+  - name: hdfc-ai-platform-slos
+    rules:
+      - alert: SLOBreached
+        expr: hdfc_slo_met == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "SLO {{ $labels.slo }} is breached"
+          description: "The {{ $labels.slo }} SLO has been breached for 10 minutes. Check the Monitoring page; consider rollback."
+
+      - alert: GatewayDown
+        expr: up{job="hdfc-ai-platform"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HDFC AI Platform is not responding"
+          description: "Prometheus cannot scrape /metrics. Check the app container and its logs."
+
+      - alert: FailedAnswers
+        expr: increase(hdfc_requests_total{outcome="failed"}[15m]) > 3
+        labels:
+          severity: warning
+        annotations:
+          summary: "More than 3 failed answers in 15 minutes"
+          description: "The assistant is returning errors. Check the server logs and the live model."

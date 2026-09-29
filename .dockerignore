@@ -13,3 +13,7 @@ __pycache__/
 .venv/
 hdfc_env/
 tests/
+infrastructure/
+promptfoo/
+deploy/
+docker-compose.yml

@@ -33,3 +33,6 @@ reports/
 control/requests.jsonl
 control/feedback.jsonl
 control/audit.jsonl
+
+# Local secrets for the docker-compose stack
+infrastructure/prometheus/metrics_token
