@@ -9,7 +9,8 @@ CONTRACT_VERSION = "v1"
 class InferenceRequest(BaseModel):
     question: str = Field(min_length=1, max_length=1000, description="Customer question, free text")
     channel: Literal["web", "mobile", "branch", "internal"] = "web"
-    purpose: Literal["customer_faq"] = Field("customer_faq", description="Only approved purpose in this release")
+    purpose: str = Field("customer_faq", pattern=r"^[a-z0-9_]+$",
+                         description="Which approved assistant answers, e.g. customer_faq or fd_assistant")
     max_new_tokens: int = Field(256, ge=16, le=512)
 
 
@@ -33,10 +34,23 @@ class DatasetRegisterRequest(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     source: str = Field(description="Where the data comes from, e.g. a file or system of record")
     owner: str = Field(description="Accountable data owner")
-    purpose: Literal["customer_faq"] = Field(description="Approved use this data may be trained for")
+    purpose: str = Field(pattern=r"^[a-z0-9_]+$", description="Approved use of this data, e.g. customer_faq, fd_assistant")
     classification: Literal["public", "internal", "confidential", "restricted"]
     permission_basis: str = Field(description="Why the bank may use this data for this purpose")
     retention: str = Field(description="How long the data and its derivatives may be kept")
+    parent_id: str | None = Field(None, description="For a team dataset: the approved dataset it selects FAQs from")
+    keywords: list[str] = Field(default_factory=list, description="For a team dataset: words that select its FAQs")
+
+
+class AssistantCreateRequest(BaseModel):
+    id: str = Field(pattern=r"^[a-z0-9_]+$", description="Short id, e.g. fd_assistant")
+    name: str = Field(min_length=1, max_length=80)
+    description: str = Field(max_length=300)
+    dataset_id: str = Field(description="Approved dataset whose knowledge the assistant answers from")
+
+
+class AssistantReviewRequest(BaseModel):
+    status: Literal["approved", "rejected"]
 
 
 class LoginRequest(BaseModel):

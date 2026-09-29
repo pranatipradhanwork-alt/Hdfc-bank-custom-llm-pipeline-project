@@ -3,6 +3,19 @@
     "name": "Customer Support FAQ Assistant",
     "description": "Answers customer questions about HDFC Bank products and services from approved FAQs, with citations.",
     "purpose": "customer_faq",
-    "owner": "customer-support-faq-owner"
+    "owner": "customer-support-faq-owner",
+    "dataset_id": "ds-001",
+    "index_dir": "models/rag_index",
+    "faqs": 1405,
+    "status": "approved",
+    "created_by": "admin",
+    "approved_by": "data-owner",
+    "history": [
+      {
+        "time": "2026-09-28T06:14:17+00:00",
+        "status": "approved",
+        "note": "First assistant, built on the full approved BankFAQs dataset (ds-001, Delta v7)"
+      }
+    ]
   }
 }

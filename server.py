@@ -14,8 +14,10 @@ import auth
 import control_plane
 import registry
 from inference import Assistant
-from schemas import (AssignRequest, DatasetRegisterRequest, FeedbackRequest, InferenceRequest, InferenceResponse,
-                     LoginRequest, ModelRegisterRequest, ModelReviewRequest, RunRequest)
+from rag import FaqIndex
+from schemas import (AssignRequest, AssistantCreateRequest, AssistantReviewRequest, DatasetRegisterRequest,
+                     FeedbackRequest, InferenceRequest, InferenceResponse, LoginRequest, ModelRegisterRequest,
+                     ModelReviewRequest, RunRequest)
 
 app = FastAPI(title="HDFC AI Platform API", version="1.0")
 
@@ -30,6 +32,19 @@ def reload_live_model():
     # Load whichever version the registry now marks as live
     global assistant
     assistant = Assistant()
+
+
+team_indexes = {}  # index folder -> loaded FaqIndex, so each team index is read from disk once
+
+
+def index_for(assistant_id):
+    """The knowledge index an assistant answers from (None means the full FAQ index)."""
+    index_dir = control_plane.get_assistant(assistant_id)["index_dir"]
+    if index_dir == "models/rag_index":
+        return None
+    if index_dir not in team_indexes:
+        team_indexes[index_dir] = FaqIndex(Path(index_dir), embedder=assistant.index.embedder)
+    return team_indexes[index_dir]
 
 
 # ---------- Helpers: who is calling, and are they allowed? ----------
@@ -112,10 +127,28 @@ def health():
 
 @app.get("/v1/assistants")
 def list_assistants(authorization: str = Header(None)):
+    """Platform users see every assistant; employees see only approved assistants assigned to them."""
     user = current_user(authorization)
-    assistants = auth.load_assistants()
-    return [{"id": key, **value, "model_version": assistant.info.model_version}
-            for key, value in assistants.items() if auth.can_use_assistant(user, key)]
+    result = []
+    for key, value in control_plane.list_assistants().items():
+        visible = auth.can(user, "view_platform") or (value["status"] == "approved" and auth.can_use_assistant(user, key))
+        if visible:
+            result.append({"id": key, **value, "model_version": assistant.info.model_version})
+    return result
+
+
+@app.post("/v1/assistants")
+def create_assistant(request: AssistantCreateRequest, authorization: str = Header(None)):
+    user = require(authorization, "create_assistant")
+    return act(user, "create_assistant", request.id, control_plane.create_assistant, request.id, request.name,
+               request.description, request.dataset_id, user["username"])
+
+
+@app.post("/v1/assistants/{assistant_id}/review")
+def review_assistant(assistant_id: str, request: AssistantReviewRequest, authorization: str = Header(None)):
+    user = require(authorization, "review_assistant")
+    return act(user, f"{request.status}_assistant", assistant_id, control_plane.review_assistant, assistant_id,
+               request.status, user["username"])
 
 
 # ---------- Users (admin) ----------
@@ -131,9 +164,10 @@ def assign_assistants(username: str, request: AssignRequest, authorization: str 
     admin = require(authorization, "manage_users")
 
     def assign():
-        unknown = set(request.assistants) - set(auth.load_assistants())
-        if unknown:
-            raise ValueError(f"Unknown assistants: {sorted(unknown)}")
+        approved = {k for k, v in control_plane.list_assistants().items() if v["status"] == "approved"}
+        not_allowed = set(request.assistants) - approved
+        if not_allowed:
+            raise ValueError(f"Only approved assistants can be assigned: {sorted(not_allowed)}")
         users = auth.load_users()
         for user in users:
             if user["username"] == username:
@@ -163,7 +197,8 @@ def get_dataset(dataset_id: str, authorization: str = Header(None)):
 def register_dataset(request: DatasetRegisterRequest, authorization: str = Header(None)):
     user = require(authorization, "register_dataset")
     return act(user, "register_dataset", request.name, control_plane.register_dataset, request.name, request.source,
-               request.owner, request.purpose, request.classification, request.permission_basis, request.retention)
+               request.owner, request.purpose, request.classification, request.permission_basis, request.retention,
+               request.parent_id, request.keywords)
 
 
 @app.post("/v1/datasets/{dataset_id}/prepare")
@@ -278,6 +313,12 @@ def rollback_deployment(deployment_id: str, authorization: str = Header(None)):
 
 def gateway_caller(authorization, x_api_key, assistant_id):
     """Applications use the app key; people use their login and must be assigned the assistant."""
+    try:
+        status = control_plane.get_assistant(assistant_id)["status"]
+    except KeyError:
+        raise HTTPException(status_code=404, detail=f"Unknown assistant: {assistant_id}")
+    if status != "approved":
+        raise HTTPException(status_code=403, detail=f"Assistant {assistant_id} is not approved yet")
     if APP_KEY and x_api_key == APP_KEY:
         caller = "application"
     else:
@@ -297,14 +338,16 @@ def gateway_caller(authorization, x_api_key, assistant_id):
 @app.post("/v1/inference", response_model=InferenceResponse)
 def inference(request: InferenceRequest, authorization: str = Header(None), x_api_key: str = Header(None)):
     caller = gateway_caller(authorization, x_api_key, request.purpose)
-    response = assistant.answer(request.question, request.max_new_tokens)
+    response = assistant.answer(request.question, request.max_new_tokens, index=index_for(request.purpose))
     control_plane.log_request(response, caller, request.purpose)
     return response
 
 
 @app.post("/v1/feedback")
 def feedback(request: FeedbackRequest, authorization: str = Header(None), x_api_key: str = Header(None)):
-    caller = gateway_caller(authorization, x_api_key, "customer_faq")
+    # Feedback is allowed from whoever may use the assistant that gave the answer
+    assistant_id = read(control_plane.find_request, request.trace_id)["assistant"]
+    caller = gateway_caller(authorization, x_api_key, assistant_id)
     return read(control_plane.add_feedback, request.trace_id, request.rating, request.comment, caller)
 
 

@@ -408,9 +408,12 @@ function DashboardPage({ navigate }) {
   const monitoring = useApi("/v1/monitoring");
   const audit = useApi("/v1/audit");
   const health = useApi("/v1/health");
-  if (!datasets.data || !runs.data || !models.data || !monitoring.data || !audit.data) {
-    return <Loading error={datasets.error || runs.error || models.error || monitoring.error || audit.error} />;
+  const assistants = useApi("/v1/assistants");
+  if (!datasets.data || !runs.data || !models.data || !monitoring.data || !audit.data || !assistants.data) {
+    return <Loading error={datasets.error || runs.error || models.error || monitoring.error || audit.error || assistants.error} />;
   }
+  const liveAssistants = assistants.data.filter((a) => a.status === "approved").length;
+  const pendingAssistants = assistants.data.filter((a) => a.status === "pending").length;
 
   const versions = Object.values(models.data.versions);
   const approvedData = datasets.data.filter((d) => d.status === "approved").length;
@@ -423,7 +426,7 @@ function DashboardPage({ navigate }) {
     { title: "Data", desc: "Register & prepare data", icon: "database", page: "datasets", status: `${approvedData} approved`, ok: true },
     { title: "Training", desc: "LoRA fine-tuning", icon: "flask", page: "training", status: queuedRuns ? `${queuedRuns} queued` : `${completedRuns} completed`, ok: !queuedRuns },
     { title: "Evaluation", desc: "Quality & safety", icon: "clipboard", page: "evaluations", status: `${versions.length} evaluated`, ok: true },
-    { title: "Approval", desc: "Human sign-off", icon: "shield", page: "approvals", status: `${pendingModels + preparedData} pending`, ok: pendingModels + preparedData === 0 },
+    { title: "Approval", desc: "Human sign-off", icon: "shield", page: "approvals", status: `${pendingModels + preparedData + pendingAssistants} pending`, ok: pendingModels + preparedData + pendingAssistants === 0 },
     { title: "Deployment", desc: "Serve approved model", icon: "rocket", page: "deployments", status: `${models.data.live} live`, ok: true },
     { title: "Monitoring", desc: "Requests & feedback", icon: "activity", page: "monitoring", status: `${monitoring.data.requests} requests`, ok: true },
   ];
@@ -433,9 +436,9 @@ function DashboardPage({ navigate }) {
       <PageHeader title="AI Platform Overview" description="The governed lifecycle from approved banking data to a served, fine-tuned model." />
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
         <Stat icon="rocket" label="Live model" value={models.data.live} sub={`Rollback to ${models.data.previous}`} />
-        <Stat icon="box" label="Registered models" value={versions.length} sub={`${versions.filter((v) => v.status === "approved").length} approved`} />
+        <Stat icon="chat" label="Assistants" value={liveAssistants} sub={`approved, ${pendingAssistants} pending`} />
         <Stat icon="flask" label="Training runs" value={runs.data.length} sub={`${completedRuns} completed, ${queuedRuns} queued`} />
-        <Stat icon="shield" label="Pending approvals" value={pendingModels + preparedData} sub="Models and datasets" />
+        <Stat icon="shield" label="Pending approvals" value={pendingModels + preparedData + pendingAssistants} sub="Datasets, models, assistants" />
         <Stat icon="database" label="Datasets" value={datasets.data.length} sub={`${approvedData} approved`} />
         <Stat icon="activity" label="Gateway" value={health.data ? "Healthy" : "…"} sub={`${monitoring.data.requests} requests served`} />
       </div>
@@ -539,10 +542,11 @@ function AssistantPage({ setToast }) {
   const [busy, setBusy] = useState(false);
 
   if (!assistants.data) return <Loading error={assistants.error} />;
-  if (!assistants.data.length) {
+  const usable = assistants.data.filter((a) => a.status === "approved");
+  if (!usable.length) {
     return <Card><Empty icon="lock" title="No assistant assigned to you" sub="Ask a platform admin to assign one." /></Card>;
   }
-  const current = assistants.data.find((a) => a.id === selected) || assistants.data[0];
+  const current = usable.find((a) => a.id === selected) || usable[0];
 
   async function ask(text) {
     const q = (text || question).trim();
@@ -561,9 +565,9 @@ function AssistantPage({ setToast }) {
   return (
     <div className="fade-in">
       <PageHeader title={current.name} description={current.description} action={<Badge status="live">Model {current.model_version}</Badge>} />
-      {assistants.data.length > 1 && (
-        <div className="mb-4 flex gap-2">
-          {assistants.data.map((a) => (
+      {usable.length > 1 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          {usable.map((a) => (
             <Button key={a.id} size="sm" variant={a.id === current.id ? "primary" : "secondary"} onClick={() => setSelected(a.id)}>{a.name}</Button>
           ))}
         </div>
@@ -594,14 +598,17 @@ function AssistantPage({ setToast }) {
 /* ============================== DATASETS ============================== */
 const DATASET_STAGES = ["Registered", "Preparing", "Prepared", "Approved"];
 
-function RegisterDatasetModal({ onClose, onDone, setToast }) {
-  const [form, setForm] = useState({ name: "", source: "", owner: "", purpose: "customer_faq", classification: "internal", permission_basis: "", retention: "" });
+function RegisterDatasetModal({ onClose, onDone, setToast, datasets }) {
+  const [form, setForm] = useState({ name: "", source: "", owner: "", purpose: "", classification: "internal", permission_basis: "", retention: "", parent_id: "", keywords: "" });
   const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  const approved = datasets.filter((d) => d.status === "approved" && !d.parent_id);
 
   async function submit(e) {
     e.preventDefault();
+    const body = { ...form, parent_id: form.parent_id || null,
+      keywords: form.keywords.split(",").map((k) => k.trim()).filter(Boolean) };
     try {
-      const d = await api("/v1/datasets", "POST", form);
+      const d = await api("/v1/datasets", "POST", body);
       setToast({ message: `Registered ${d.id} (${d.name})` });
       onDone();
     } catch (err) {
@@ -614,8 +621,16 @@ function RegisterDatasetModal({ onClose, onDone, setToast }) {
       <form onSubmit={submit} className="space-y-3">
         <Field label="Name"><input className={inputClass} value={form.name} onChange={set("name")} required /></Field>
         <Field label="Source" hint="Where the data comes from, e.g. a file path or system of record"><input className={inputClass} value={form.source} onChange={set("source")} required /></Field>
-        <Field label="Data owner"><input className={inputClass} value={form.owner} onChange={set("owner")} required /></Field>
-        <Field label="Purpose"><select className={inputClass} value={form.purpose} onChange={set("purpose")}><option value="customer_faq">customer_faq</option></select></Field>
+        <Field label="Data owner" hint="The team accountable for this data, e.g. fd-team"><input className={inputClass} value={form.owner} onChange={set("owner")} required /></Field>
+        <Field label="Purpose" hint="Lowercase with _, e.g. fd_assistant"><input className={inputClass} value={form.purpose} onChange={set("purpose")} required pattern="[a-z0-9_]+" /></Field>
+        <Field label="Team dataset: take FAQs from" hint="Optional. Pick an approved dataset to select this team's FAQs from.">
+          <select className={inputClass} value={form.parent_id} onChange={set("parent_id")}>
+            <option value="">No, this is a new data source</option>
+            {approved.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.id}, Delta v{d.delta_version})</option>)}
+          </select>
+        </Field>
+        {form.parent_id && <Field label="Keywords" hint="Comma separated. FAQs mentioning any of these are included, e.g. fixed deposit, fd, recurring deposit">
+          <input className={inputClass} value={form.keywords} onChange={set("keywords")} required /></Field>}
         <Field label="Classification" hint="Restricted data is refused for fine-tuning">
           <select className={inputClass} value={form.classification} onChange={set("classification")}>
             {["public", "internal", "confidential", "restricted"].map((c) => <option key={c}>{c}</option>)}
@@ -657,7 +672,7 @@ function DatasetsPage({ navigate, user, setToast }) {
           { label: "Last change", render: (d) => formatTime(d.history[d.history.length - 1].time) },
         ]} />
       </Card>
-      {showForm && <RegisterDatasetModal setToast={setToast} onClose={() => setShowForm(false)} onDone={() => { setShowForm(false); datasets.reload(); }} />}
+      {showForm && <RegisterDatasetModal datasets={datasets.data} setToast={setToast} onClose={() => setShowForm(false)} onDone={() => { setShowForm(false); datasets.reload(); }} />}
     </div>
   );
 }
@@ -684,8 +699,9 @@ function DatasetDetailPage({ id, navigate, user, setToast }) {
       <Breadcrumb items={[{ label: "Datasets", onClick: () => navigate("datasets") }, { label: d.name }]} />
       <PageHeader title={d.name} description={d.source} action={
         <div className="flex gap-2">
-          {d.status === "registered" && user.permissions.includes("prepare_dataset") &&
-            <Button variant="primary" onClick={() => action(`/v1/datasets/${d.id}/prepare`, "Preparation requested")}>Request preparation</Button>}
+          {d.status === "registered" && user.permissions.includes("prepare_dataset") && (d.parent_id
+            ? <Button variant="primary" onClick={() => action(`/v1/datasets/${d.id}/prepare`, "Knowledge index built")}>Build knowledge index</Button>
+            : <Button variant="primary" onClick={() => action(`/v1/datasets/${d.id}/prepare`, "Preparation requested")}>Request preparation</Button>)}
           {d.status === "prepared" && user.permissions.includes("approve_dataset") &&
             <Button variant="success" icon="check" onClick={() => action(`/v1/datasets/${d.id}/approve`, `${d.name} approved and frozen`)}>Approve & freeze</Button>}
           <Badge status={d.status} />
@@ -695,6 +711,7 @@ function DatasetDetailPage({ id, navigate, user, setToast }) {
         <Card className="p-6 lg:col-span-2">
           <SectionTitle>Governance</SectionTitle>
           <Info items={[["ID", d.id], ["Owner", d.owner], ["Purpose", d.purpose], ["Classification", d.classification],
+            ...(d.parent_id ? [["Selected from", d.parent_id], ["Keywords", d.keywords.join(", ")]] : []),
             ["Permission basis", d.permission_basis], ["Retention", d.retention], ["Delta version", d.delta_version ?? "-"], ["Approved by", d.approved_by || "-"]]} />
           <div className="mt-6 border-t border-ink-100 pt-6">
             <SectionTitle>Dataset lifecycle</SectionTitle>
@@ -715,7 +732,14 @@ function DatasetDetailPage({ id, navigate, user, setToast }) {
 
         <Card className="p-6">
           <SectionTitle>Quality report</SectionTitle>
-          {q ? <Info items={[
+          {q && d.parent_id ? <Info items={[
+            ["FAQs selected", q.final_rows],
+            ["Selected from", `${q.derived_from} (Delta v${q.delta_version})`],
+            ["Keywords", q.keywords.join(", ")],
+            ["PII masking", "Done upstream in the parent dataset"],
+            ["Duplicates", "Removed upstream in the parent dataset"],
+            ["Minimum for approval", "10 FAQs"],
+          ]} /> : q ? <Info items={[
             ["Raw rows", q.raw_rows.toLocaleString("en-IN")],
             ["Final rows", q.final_rows.toLocaleString("en-IN")],
             ["Exact duplicates removed", q.exact_duplicates_removed],
@@ -725,8 +749,11 @@ function DatasetDetailPage({ id, navigate, user, setToast }) {
             ["Leaked test rows (≥0.95)", q.contamination["test_rows_at_or_above_0.95"]],
             ["Max test-train similarity", q.contamination.max_similarity_to_train],
           ]} /> : <Empty icon="clipboard" title="Not prepared yet" sub="The quality report appears after preparation." />}
-          {q && <div className="mt-5 border-t border-ink-100 pt-4">
+          {q && !d.parent_id && <div className="mt-5 border-t border-ink-100 pt-4">
             <Badge status={q.contamination["test_rows_at_or_above_0.95"] === 0 ? "passed" : "failed"}>Leakage check {q.contamination["test_rows_at_or_above_0.95"] === 0 ? "passed" : "failed"}</Badge>
+          </div>}
+          {q && d.parent_id && <div className="mt-5 border-t border-ink-100 pt-4">
+            <Badge status={q.final_rows >= 10 ? "passed" : "failed"}>Size check {q.final_rows >= 10 ? "passed" : "failed"}</Badge>
           </div>}
         </Card>
       </div>
@@ -822,6 +849,97 @@ function TrainingJobsPage({ user, setToast }) {
 </script>
 
 <script type="text/babel" data-presets="react">
+/* ============================== ASSISTANTS ============================== */
+function CreateAssistantModal({ onClose, onDone, setToast }) {
+  const datasets = useApi("/v1/datasets");
+  const [form, setForm] = useState({ id: "", name: "", description: "", dataset_id: "" });
+  const set = (key) => (e) => setForm({ ...form, [key]: e.target.value });
+  if (!datasets.data) return <Modal title="Create assistant" onClose={onClose}><Loading error={datasets.error} /></Modal>;
+  const approved = datasets.data.filter((d) => d.status === "approved");
+
+  async function submit(e) {
+    e.preventDefault();
+    try {
+      const a = await api("/v1/assistants", "POST", { ...form, dataset_id: form.dataset_id || (approved[0] && approved[0].id) });
+      setToast({ message: `${a.name} created. It needs admin approval before anyone can use it.` });
+      onDone();
+    } catch (err) {
+      setToast({ message: err.message, type: "error" });
+    }
+  }
+
+  return (
+    <Modal title="Create assistant" onClose={onClose}>
+      <form onSubmit={submit} className="space-y-3">
+        <Field label="Assistant id" hint="Lowercase with _, e.g. fd_assistant"><input className={inputClass} value={form.id} onChange={set("id")} required pattern="[a-z0-9_]+" /></Field>
+        <Field label="Name"><input className={inputClass} value={form.name} onChange={set("name")} required placeholder="Fixed Deposit Assistant" /></Field>
+        <Field label="What it helps with"><input className={inputClass} value={form.description} onChange={set("description")} placeholder="Answers fixed deposit questions for the FD team" /></Field>
+        <Field label="Knowledge (approved dataset)" hint="The assistant answers only from this dataset's FAQs, using the shared fine-tuned model.">
+          <select className={inputClass} value={form.dataset_id} onChange={set("dataset_id")}>
+            {approved.map((d) => <option key={d.id} value={d.id}>{d.name} ({d.id}, {d.quality_report.final_rows} FAQs)</option>)}
+          </select>
+        </Field>
+        <div className="flex justify-end gap-2 pt-2">
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" disabled={!approved.length}>Create</Button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+function AssistantsPage({ user, setToast }) {
+  const assistants = useApi("/v1/assistants");
+  const [showForm, setShowForm] = useState(false);
+  if (!assistants.data) return <Loading error={assistants.error} />;
+
+  async function review(id, status) {
+    try {
+      await api(`/v1/assistants/${id}/review`, "POST", { status });
+      setToast({ message: `Assistant ${status}` });
+      assistants.reload();
+    } catch (err) {
+      setToast({ message: err.message, type: "error" });
+    }
+  }
+
+  return (
+    <div className="fade-in">
+      <PageHeader title="Assistants" description="Each assistant is the shared fine-tuned model plus one team's approved knowledge. New assistants need admin approval before they can be assigned to employees."
+        action={user.permissions.includes("create_assistant") && <Button variant="primary" icon="plus" onClick={() => setShowForm(true)}>Create Assistant</Button>} />
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        {assistants.data.map((a) => (
+          <Card key={a.id} className="flex flex-col gap-4 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-display text-base font-bold text-ink-900">{a.name}</p>
+                <p className="font-mono text-xs text-ink-400">{a.id}</p>
+              </div>
+              <Badge status={a.status} />
+            </div>
+            <p className="text-sm text-ink-500">{a.description || "-"}</p>
+            <div className="grid grid-cols-2 gap-3 border-t border-ink-100 pt-4 text-sm">
+              <div><p className="text-xs text-ink-400">Knowledge</p><p className="font-semibold text-ink-800">{a.faqs} FAQs · {a.dataset_id}</p></div>
+              <div><p className="text-xs text-ink-400">Model</p><p className="font-semibold text-ink-800">{a.model_version}</p></div>
+              <div><p className="text-xs text-ink-400">Owner</p><p className="font-semibold text-ink-800">{a.owner}</p></div>
+              <div><p className="text-xs text-ink-400">Created / approved by</p><p className="font-semibold text-ink-800">{a.created_by} / {a.approved_by || "-"}</p></div>
+            </div>
+            {a.status === "pending" && user.permissions.includes("review_assistant") && (
+              <div className="flex gap-2 border-t border-ink-100 pt-4">
+                <Button variant="success" size="sm" icon="check" onClick={() => review(a.id, "approved")}>Approve</Button>
+                <Button variant="danger" size="sm" icon="x" onClick={() => review(a.id, "rejected")}>Reject</Button>
+              </div>
+            )}
+            {a.status === "pending" && !user.permissions.includes("review_assistant") &&
+              <p className="border-t border-ink-100 pt-4 text-xs text-ink-400">Waiting for admin approval.</p>}
+          </Card>
+        ))}
+      </div>
+      {showForm && <CreateAssistantModal setToast={setToast} onClose={() => setShowForm(false)} onDone={() => { setShowForm(false); assistants.reload(); }} />}
+    </div>
+  );
+}
+
 /* ============================== MODELS ============================== */
 function modelStatus(name, entry, registry) {
   return name === registry.live ? "live" : entry.status;
@@ -973,9 +1091,11 @@ function EvaluationsPage() {
 function ApprovalsPage({ navigate, user }) {
   const models = useApi("/v1/models");
   const datasets = useApi("/v1/datasets");
-  if (!models.data || !datasets.data) return <Loading error={models.error || datasets.error} />;
+  const assistants = useApi("/v1/assistants");
+  if (!models.data || !datasets.data || !assistants.data) return <Loading error={models.error || datasets.error || assistants.error} />;
   const pendingModels = Object.entries(models.data.versions).filter(([, m]) => m.status === "pending");
   const preparedData = datasets.data.filter((d) => d.status === "prepared");
+  const pendingAssistants = assistants.data.filter((a) => a.status === "pending");
   const canApprove = user.permissions.includes("review_model");
 
   return (
@@ -992,11 +1112,17 @@ function ApprovalsPage({ navigate, user }) {
         {preparedData.map((d) => (
           <Card key={d.id} hover onClick={() => navigate("datasetDetail", d.id)} className="p-5">
             <div className="flex items-start justify-between"><div><p className="text-xs text-ink-400">Dataset</p><p className="font-display text-base font-bold text-ink-900">{d.name}</p></div><Badge status="prepared" /></div>
-            <p className="mt-3 text-sm text-ink-500">Delta v{d.delta_version}, {d.quality_report.final_rows} rows, leakage {d.quality_report.contamination["test_rows_at_or_above_0.95"]} rows.</p>
+            <p className="mt-3 text-sm text-ink-500">Delta v{d.delta_version}, {d.quality_report.final_rows} rows{d.parent_id ? `, selected from ${d.parent_id}` : `, leakage ${d.quality_report.contamination["test_rows_at_or_above_0.95"]} rows`}.</p>
+          </Card>
+        ))}
+        {pendingAssistants.map((a) => (
+          <Card key={a.id} hover onClick={() => navigate("assistants")} className="p-5">
+            <div className="flex items-start justify-between"><div><p className="text-xs text-ink-400">Assistant</p><p className="font-display text-base font-bold text-ink-900">{a.name}</p></div><Badge status="pending" /></div>
+            <p className="mt-3 text-sm text-ink-500">{a.faqs} FAQs from {a.dataset_id}, created by {a.created_by}.</p>
           </Card>
         ))}
       </div>
-      {!pendingModels.length && !preparedData.length && <Card><Empty icon="shield" title="Nothing waiting for approval" sub="New models and prepared datasets appear here." /></Card>}
+      {!pendingModels.length && !preparedData.length && !pendingAssistants.length && <Card><Empty icon="shield" title="Nothing waiting for approval" sub="New models and prepared datasets appear here." /></Card>}
     </div>
   );
 }
@@ -1190,7 +1316,7 @@ function UsersPage({ setToast }) {
           { label: "Team", render: (u) => u.team },
           { label: "Assigned assistants", render: (u) => (
             <div className="flex flex-wrap gap-2">
-              {assistants.data.map((a) => (
+              {assistants.data.filter((a) => a.status === "approved").map((a) => (
                 <label key={a.id} className="flex items-center gap-1.5 text-xs">
                   <input type="checkbox" checked={u.assistants.includes(a.id)} onChange={() => toggle(u, a.id)} /> {a.name}
                 </label>
@@ -1237,6 +1363,7 @@ const ROLE_LABELS = { admin: "Platform Admin", ai_engineer: "AI Platform Enginee
 const NAV_ITEMS = [
   { key: "dashboard", label: "Dashboard", icon: "dashboard", needs: "view_platform" },
   { key: "assistant", label: "AI Assistant", icon: "chat", needs: "use_assistant" },
+  { key: "assistants", label: "Assistants", icon: "users", needs: "view_platform" },
   { key: "datasets", label: "Datasets", icon: "database", needs: "view_platform" },
   { key: "training", label: "Training Jobs", icon: "flask", needs: "view_platform" },
   { key: "models", label: "Models", icon: "box", needs: "view_platform" },
@@ -1335,7 +1462,7 @@ function App() {
 
   const props = { navigate, user, setToast, id: route.id };
   const pages = {
-    dashboard: DashboardPage, assistant: AssistantPage, datasets: DatasetsPage, datasetDetail: DatasetDetailPage,
+    dashboard: DashboardPage, assistant: AssistantPage, assistants: AssistantsPage, datasets: DatasetsPage, datasetDetail: DatasetDetailPage,
     training: TrainingJobsPage, models: ModelsPage, modelDetail: ModelDetailPage, evaluations: EvaluationsPage,
     approvals: ApprovalsPage, deployments: DeploymentsPage, monitoring: MonitoringPage, audit: AuditLogsPage, users: UsersPage,
   };

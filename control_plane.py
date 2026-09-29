@@ -21,6 +21,7 @@ RUNS_FILE = CONTROL_DIR / "runs.json"
 REQUESTS_FILE = CONTROL_DIR / "requests.jsonl"
 FEEDBACK_FILE = CONTROL_DIR / "feedback.jsonl"
 AUDIT_FILE = CONTROL_DIR / "audit.jsonl"
+ASSISTANTS_FILE = CONTROL_DIR / "assistants.json"
 QUALITY_REPORTS_DIR = Path("data/quality_reports")
 
 APPROVED_BASE_MODELS = ["meta-llama/Llama-3.2-1B-Instruct", "Qwen/Qwen2.5-0.5B-Instruct"]
@@ -74,14 +75,25 @@ def save_dataset(updated):
     write_json(DATASETS_FILE, datasets)
 
 
-def register_dataset(name, source, owner, purpose, classification, permission_basis, retention):
+MIN_TEAM_FAQS = 10  # a team knowledge index needs at least this many FAQs to be useful
+
+
+def register_dataset(name, source, owner, purpose, classification, permission_basis, retention,
+                     parent_id=None, keywords=None):
+    """Register a data source. A team dataset sets parent_id + keywords: it selects part of an approved dataset."""
     if classification == "restricted":
         raise ValueError("Restricted data cannot be registered for fine-tuning")
+    if parent_id:
+        if get_dataset(parent_id)["status"] != "approved":
+            raise ValueError(f"Parent dataset {parent_id} is not approved")
+        if not keywords:
+            raise ValueError("A team dataset needs keywords that select its FAQs")
     datasets = list_datasets()
     dataset = {
         "id": f"ds-{len(datasets) + 1:03d}",
         "name": name, "source": source, "owner": owner, "purpose": purpose,
         "classification": classification, "permission_basis": permission_basis, "retention": retention,
+        "parent_id": parent_id, "keywords": keywords or [],
         "status": "registered", "delta_version": None, "quality_report": None, "approved_by": None,
         "history": [{"time": now(), "status": "registered", "note": f"Registered by {owner}"}],
     }
@@ -89,11 +101,34 @@ def register_dataset(name, source, owner, purpose, classification, permission_ba
     return dataset
 
 
+def team_index_dir(dataset_id):
+    return Path("models") / f"rag_index_{dataset_id}"
+
+
 def request_preparation(dataset_id):
     dataset = get_dataset(dataset_id)
     if dataset["status"] == "approved":
         raise ValueError("Approved datasets are frozen; register a new dataset to change the data")
+    if dataset.get("parent_id"):
+        return prepare_team_dataset(dataset)
     change_status(dataset, "preparing", "Preparation requested; run `python clean_data.py` on the worker")
+    save_dataset(dataset)
+    return dataset
+
+
+def prepare_team_dataset(dataset):
+    """Team datasets reuse already-cleaned, approved FAQs, so they are prepared right away (no GPU needed)."""
+    from rag import INDEX_DIR, build_team_index
+
+    parent = get_dataset(dataset["parent_id"])
+    meta = build_team_index(dataset["keywords"], team_index_dir(dataset["id"]), INDEX_DIR)
+    dataset["delta_version"] = parent["delta_version"]
+    dataset["quality_report"] = {
+        "final_rows": meta["faqs"], "derived_from": parent["id"], "keywords": dataset["keywords"],
+        "delta_version": parent["delta_version"], "pii_masked_upstream": True, "duplicates_removed_upstream": True,
+    }
+    change_status(dataset, "prepared",
+                  f"Built a knowledge index of {meta['faqs']} FAQs from {parent['id']} (Delta v{parent['delta_version']})")
     save_dataset(dataset)
     return dataset
 
@@ -116,14 +151,70 @@ def approve_dataset(dataset_id, approved_by):
     dataset = get_dataset(dataset_id)
     if dataset["status"] != "prepared":
         raise ValueError(f"Only prepared datasets can be approved (status is {dataset['status']})")
-    # Quality gate: the test split must not contain near-copies of training questions
-    leaked = dataset["quality_report"]["contamination"]["test_rows_at_or_above_0.95"]
-    if leaked > 0:
-        raise ValueError(f"{leaked} test rows are near-copies of training rows; fix the split before approval")
+    if dataset.get("parent_id"):
+        # Quality gate for team datasets: enough FAQs to answer from
+        rows = dataset["quality_report"]["final_rows"]
+        if rows < MIN_TEAM_FAQS:
+            raise ValueError(f"Only {rows} FAQs matched the keywords; at least {MIN_TEAM_FAQS} are needed")
+    else:
+        # Quality gate for training data: the test split must not contain near-copies of training questions
+        leaked = dataset["quality_report"]["contamination"]["test_rows_at_or_above_0.95"]
+        if leaked > 0:
+            raise ValueError(f"{leaked} test rows are near-copies of training rows; fix the split before approval")
     dataset["approved_by"] = approved_by
     change_status(dataset, "approved", f"Approved and frozen at Delta version {dataset['delta_version']} by {approved_by}")
     save_dataset(dataset)
     return dataset
+
+
+# ---------- Assistants: pending -> approved / rejected ----------
+# An assistant = the shared fine-tuned model + one approved dataset's knowledge index.
+
+def list_assistants():
+    return read_json(ASSISTANTS_FILE, {})
+
+
+def get_assistant(assistant_id):
+    assistants = list_assistants()
+    if assistant_id not in assistants:
+        raise KeyError(f"Unknown assistant: {assistant_id}")
+    return assistants[assistant_id]
+
+
+def save_assistant(assistant_id, assistant):
+    assistants = list_assistants()
+    assistants[assistant_id] = assistant
+    write_json(ASSISTANTS_FILE, assistants)
+
+
+def create_assistant(assistant_id, name, description, dataset_id, created_by):
+    if assistant_id in list_assistants():
+        raise ValueError(f"Assistant {assistant_id} already exists")
+    dataset = get_dataset(dataset_id)
+    if dataset["status"] != "approved":
+        raise ValueError(f"Dataset {dataset_id} is not approved")
+    index_dir = team_index_dir(dataset_id) if dataset.get("parent_id") else Path("models/rag_index")
+    assistant = {
+        "name": name, "description": description, "purpose": assistant_id, "owner": dataset["owner"],
+        "dataset_id": dataset_id, "index_dir": str(index_dir).replace("\\", "/"),
+        "faqs": dataset["quality_report"]["final_rows"], "status": "pending",
+        "created_by": created_by, "approved_by": None,
+        "history": [{"time": now(), "status": "pending", "note": f"Created by {created_by} from {dataset_id}"}],
+    }
+    save_assistant(assistant_id, assistant)
+    return assistant
+
+
+def review_assistant(assistant_id, status, reviewer):
+    if status not in ("approved", "rejected"):
+        raise ValueError("Status must be 'approved' or 'rejected'")
+    assistant = get_assistant(assistant_id)
+    if assistant["status"] != "pending":
+        raise ValueError(f"Assistant {assistant_id} is already {assistant['status']}")
+    assistant["approved_by"] = reviewer if status == "approved" else None
+    change_status(assistant, status, f"{status.capitalize()} by {reviewer}")
+    save_assistant(assistant_id, assistant)
+    return assistant
 
 
 # ---------- Training runs ----------

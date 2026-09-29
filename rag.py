@@ -70,15 +70,37 @@ def build_index(dataset_version=None):
     return meta
 
 
+def build_team_index(keywords, out_dir, source_dir=INDEX_DIR):
+    """A team's knowledge index: the approved FAQs that mention any keyword.
+
+    It reuses the embeddings already computed for the full index, so it takes seconds and needs no GPU.
+    """
+    faqs = pd.read_parquet(source_dir / "faqs.parquet")
+    embeddings = np.load(source_dir / "embeddings.npy")
+    meta = json.loads((source_dir / "meta.json").read_text())
+
+    text = (faqs["User_Query"] + " " + faqs["Target_Banking_Response"]).str.lower()
+    pattern = r"\b(?:" + "|".join(re.escape(k.strip().lower()) for k in keywords) + r")\b"
+    keep = text.str.contains(pattern, regex=True).to_numpy()
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    faqs[keep].reset_index(drop=True).to_parquet(out_dir / "faqs.parquet")
+    np.save(out_dir / "embeddings.npy", embeddings[keep])
+    team_meta = {**meta, "faqs": int(keep.sum()), "keywords": keywords, "built_from": str(source_dir)}
+    (out_dir / "meta.json").write_text(json.dumps(team_meta, indent=2))
+    return team_meta
+
+
 class FaqIndex:
-    def __init__(self, index_dir=INDEX_DIR):
+    def __init__(self, index_dir=INDEX_DIR, embedder=None):
         if not (index_dir / "meta.json").exists():
             raise FileNotFoundError(f"[ERROR] No RAG index at {index_dir}. Run: python rag.py --build")
         self.meta = json.loads((index_dir / "meta.json").read_text())
         self.faqs = pd.read_parquet(index_dir / "faqs.parquet")
         self.embeddings = np.load(index_dir / "embeddings.npy")
         self.normalised_answers = self.faqs["Target_Banking_Response"].map(normalise)
-        self.embedder = load_embedder()
+        # Several team indexes can share one embedding model instead of loading it again
+        self.embedder = embedder or load_embedder()
 
     def search(self, questions, k=TOP_K):
         # Exact cosine search; at ~1.5k FAQs a matrix product is instant, so no vector database is needed

@@ -79,7 +79,9 @@ class Assistant:
             embed_model=self.index.meta["embed_model"],
         )
 
-    def answer(self, question, max_new_tokens=256):
+    def answer(self, question, max_new_tokens=256, index=None):
+        """index: the assistant's own knowledge index (defaults to the full FAQ index)."""
+        index = index or self.index
         started = time.perf_counter()
         trace_id = uuid.uuid4().hex
         masked_question, flags = check_input(question)
@@ -96,14 +98,14 @@ class Assistant:
             if flag in flags:
                 return respond(refusal, escalate=flag == "transaction_request", missing=f"Request not permitted: {flag}")
 
-        retrieved = self.index.search([search_text(masked_question)])[0]
+        retrieved = index.search([search_text(masked_question)])[0]
         # Source content is untrusted too: drop any FAQ carrying injected instructions
         clean = [(faq, score) for faq, score in retrieved if not is_injected(faq["Target_Banking_Response"])]
         if len(clean) < len(retrieved):
             flags.append("context_injection_removed")
         citations = [
             Citation(faq_id=faq["faq_id"], question=faq["User_Query"], score=round(score, 4),
-                     dataset_version=self.index.meta["dataset_version"])
+                     dataset_version=index.meta["dataset_version"])
             for faq, score in clean
         ]
         top_score = clean[0][1] if clean else 0.0

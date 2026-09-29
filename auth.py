@@ -23,9 +23,10 @@ SESSION_HOURS = 8
 PERMISSIONS = {
     "employee": {"use_assistant"},
     "ai_engineer": {"use_assistant", "view_platform", "register_dataset", "prepare_dataset", "request_run",
-                    "register_model"},
+                    "register_model", "create_assistant"},
     "admin": {"use_assistant", "view_platform", "register_dataset", "prepare_dataset", "request_run",
-              "register_model", "approve_dataset", "review_model", "promote", "rollback", "manage_users"},
+              "register_model", "create_assistant", "approve_dataset", "review_model", "review_assistant",
+              "promote", "rollback", "manage_users"},
 }
 
 sessions = {}  # token -> {"username": ..., "expires": ...}

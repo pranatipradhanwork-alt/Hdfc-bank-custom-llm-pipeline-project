@@ -27,5 +27,14 @@
     ],
     "password_hash": "805cf58fa5cdaa6bedf1a7702268a686ea7c78a6215c32ebdddc4d4cf47b35a2",
     "salt": "0c870006c4ba32c01e2c92f64bde5b23"
+  },
+  {
+    "username": "fd_employee",
+    "name": "FD Relationship Officer",
+    "role": "employee",
+    "team": "Retail Banking - Fixed Deposits",
+    "assistants": [],
+    "password_hash": "50a6279c829dcca5336cfd3f08ec9d0d1d11b4fc853bb71b6a68eb3b0d627c27",
+    "salt": "2731eed0d9a00e498ae77f8ca1bfe029"
   }
 ]
