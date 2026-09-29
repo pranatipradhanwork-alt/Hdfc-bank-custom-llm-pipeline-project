@@ -1,0 +1,16 @@
+# Packages needed to serve answers (inference.py + the API). Training and data prep use requirements.txt.
+# torch is installed separately in the Dockerfile from the CPU-only index (the default build bundles ~3 GB of CUDA).
+accelerate==1.15.0
+deltalake==1.6.3
+fastapi==0.141.1
+huggingface_hub==1.31.0
+mlflow-skinny==3.16.0
+numpy==2.5.3
+pandas==3.0.5
+peft==0.21.0
+pyarrow==25.0.1
+pydantic==2.13.5
+safetensors==0.8.0
+sentence-transformers==6.1.0
+transformers==5.17.0
+uvicorn==0.53.0

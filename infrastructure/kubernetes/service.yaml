@@ -1,0 +1,42 @@
+# Internal service; expose it through the bank's authenticated ingress or API gateway, not a public LoadBalancer.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hdfc-ai-platform
+  namespace: hdfc-ai
+spec:
+  type: ClusterIP
+  selector: { app: hdfc-ai-platform }
+  ports:
+    - port: 80
+      targetPort: 7860
+---
+# Keeps downloaded model files between pod restarts
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hdfc-ai-model-cache
+  namespace: hdfc-ai
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
+---
+# Only pods in the same namespace (and the monitoring namespace) may reach the app
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: hdfc-ai-platform
+  namespace: hdfc-ai
+spec:
+  podSelector:
+    matchLabels: { app: hdfc-ai-platform }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector:
+            matchLabels: { kubernetes.io/metadata.name: monitoring }
+      ports:
+        - port: 7860

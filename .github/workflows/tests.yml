@@ -1,0 +1,35 @@
+# Runs the automated tests on every push and pull request, so a change that breaks a guardrail,
+# the registry, login and roles, or the control-plane rules cannot be merged unnoticed.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # Only what the tests import; the model itself is not needed (tests never load it)
+      - name: Install test dependencies
+        run: pip install pytest numpy pandas pyarrow pyyaml deltalake pydantic
+
+      - name: Run tests
+        run: python -m pytest -q tests
+
+      - name: Check config files parse
+        run: |
+          python -c "
+          import glob, json, yaml
+          for f in glob.glob('infrastructure/**/*.y*ml', recursive=True) + ['docker-compose.yml', 'promptfoo/promptfooconfig.yaml', 'promptfoo/tests.yaml']:
+              list(yaml.safe_load_all(open(f)))
+          json.load(open('infrastructure/grafana/dashboards/hdfc-ai-platform.json'))
+          json.load(open('registry.json'))
+          print('config files OK')
+          "

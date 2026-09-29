@@ -1,0 +1,95 @@
+[
+  {
+    "id": "ds-001",
+    "name": "BankFAQs",
+    "source": "Kaggle: somanathkshirasagar/bankfaqs (data/BankFAQs.csv)",
+    "owner": "customer-support-faq-owner",
+    "purpose": "customer_faq",
+    "classification": "public",
+    "permission_basis": "Publicly published bank FAQ content; no customer records",
+    "retention": "Keep while any adapter trained on it is registered",
+    "status": "approved",
+    "delta_version": 7,
+    "quality_report": {
+      "source": "data/BankFAQs.csv",
+      "raw_rows": 1773,
+      "rows_with_missing_fields": 0,
+      "pii_masks_applied": {
+        "MASKED_ACCOUNT_OR_CARD": 2,
+        "MASKED_PHONE_NUMBER": 0,
+        "MASKED_EMAIL": 0,
+        "MASKED_SECRET": 0
+      },
+      "near_duplicates_removed": 73,
+      "exact_duplicates_removed": 295,
+      "question_groups": 1203,
+      "largest_question_group": 9,
+      "split_rows": {
+        "train": 1124,
+        "validation": 141,
+        "test": 140
+      },
+      "contamination": {
+        "test_rows": 140,
+        "max_similarity_to_train": 0.949,
+        "test_rows_at_or_above_0.95": 0,
+        "test_rows_at_or_above_0.90": 34
+      },
+      "answer_words": {
+        "min": 1,
+        "median": 33,
+        "max": 815
+      },
+      "delta_table": "data/s3_storage_vault/cleaned_banking_table",
+      "delta_version": 7,
+      "final_rows": 1405,
+      "rows_per_task": {
+        "faq": 1405
+      }
+    },
+    "approved_by": "data-owner",
+    "history": [
+      {
+        "time": "2026-09-28T06:14:17+00:00",
+        "status": "registered",
+        "note": "Registered by customer-support-faq-owner"
+      },
+      {
+        "time": "2026-09-28T06:14:17+00:00",
+        "status": "preparing",
+        "note": "Preparation requested; run `python clean_data.py` on the worker"
+      },
+      {
+        "time": "2026-09-28T06:14:17+00:00",
+        "status": "prepared",
+        "note": "Prepared as Delta version 7 (cleaned_banking_table_v7.json)"
+      },
+      {
+        "time": "2026-09-28T06:14:17+00:00",
+        "status": "approved",
+        "note": "Approved and frozen at Delta version 7 by data-owner"
+      }
+    ]
+  },
+  {
+    "id": "ds-002",
+    "name": "Banking77",
+    "source": "Hugging Face: PolyAI/banking77 (data/banking77_*.csv)",
+    "owner": "customer-support-faq-owner",
+    "purpose": "customer_faq",
+    "classification": "public",
+    "permission_basis": "Public research dataset of banking customer intents (CC BY 4.0)",
+    "retention": "Evaluation use only until approved for training",
+    "status": "registered",
+    "delta_version": null,
+    "quality_report": null,
+    "approved_by": null,
+    "history": [
+      {
+        "time": "2026-09-28T06:14:17+00:00",
+        "status": "registered",
+        "note": "Registered by customer-support-faq-owner"
+      }
+    ]
+  }
+]

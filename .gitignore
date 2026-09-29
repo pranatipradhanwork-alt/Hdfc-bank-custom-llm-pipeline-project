@@ -28,3 +28,14 @@ test_output.txt
 
 # Local evaluation output (scores are summarised in README.md and logged to MLflow)
 reports/
+
+# Runtime logs written by the server (trace ids and feedback)
+control/requests.jsonl
+control/feedback.jsonl
+control/audit.jsonl
+
+# Local secrets for the docker-compose stack
+infrastructure/prometheus/metrics_token
+
+# promptfoo raw output (machine-generated; the summary is in promptfoo/RESULTS.md)
+promptfoo/results.json

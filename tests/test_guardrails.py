@@ -19,6 +19,15 @@ def test_prompt_injection_is_flagged():
     assert "prompt_injection" not in check_input("What are the charges for a demand draft?")[1]
 
 
+def test_questions_about_other_banks_are_flagged():
+    # Found by the promptfoo suite: an SBI question got an invented answer
+    for question in ("How do I open a savings account at State Bank of India?", "What is the ICICI FD rate?"):
+        assert "other_bank" in check_input(question)[1], question
+    # Mentioning HDFC too means it is still an HDFC question
+    assert "other_bank" not in check_input("Can I move my SBI home loan to HDFC Bank?")[1]
+    assert "other_bank" not in check_input("How do I open a savings account?")[1]
+
+
 def test_direct_transaction_requests_are_flagged_but_questions_are_not():
     for request in ("Transfer Rs 5000 to my brother", "Can you block my card now?", "Pay my electricity bill for me"):
         assert "transaction_request" in check_input(request)[1], request
