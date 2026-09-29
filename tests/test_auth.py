@@ -74,6 +74,34 @@ def test_employee_only_uses_assigned_assistants():
     assert not auth.can_use_assistant(employee, "loan_assistant")
 
 
+def test_account_locks_after_five_wrong_passwords():
+    auth.failed_logins.clear()
+    for _ in range(auth.MAX_FAILED_LOGINS):
+        with pytest.raises(ValueError, match="Invalid"):
+            auth.login("ana", "wrong-password")
+    # Even the right password is refused while locked
+    with pytest.raises(auth.TooManyAttempts):
+        auth.login("ana", "correct-horse-1")
+
+
+def test_successful_login_resets_failed_count():
+    auth.failed_logins.clear()
+    for _ in range(auth.MAX_FAILED_LOGINS - 1):
+        with pytest.raises(ValueError):
+            auth.login("ana", "wrong-password")
+    auth.login("ana", "correct-horse-1")
+    assert "ana" not in auth.failed_logins
+
+
+def test_rate_limit_blocks_after_limit():
+    auth.recent_requests.clear()
+    for _ in range(3):
+        auth.allow_request("ana", limit=3)
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_request("ana", limit=3)
+    auth.allow_request("eng", limit=3)  # other callers have their own limit
+
+
 def test_short_password_is_refused():
     with pytest.raises(ValueError):
         auth.set_password("ana", "short")

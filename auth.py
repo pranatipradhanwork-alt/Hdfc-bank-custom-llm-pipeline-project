@@ -30,6 +30,31 @@ PERMISSIONS = {
 
 sessions = {}  # token -> {"username": ..., "expires": ...}
 
+# Abuse protection. Counters live in memory (a restart resets them); production would keep them in Redis.
+MAX_FAILED_LOGINS = 5          # wrong passwords allowed per username ...
+LOCKOUT_SECONDS = 15 * 60      # ... within this window before the account is locked for the rest of it
+REQUESTS_PER_MINUTE = 20       # gateway calls allowed per user or application per minute
+failed_logins = {}             # username -> times of recent wrong passwords
+recent_requests = {}           # caller -> times of recent gateway calls
+
+
+class TooManyAttempts(ValueError):
+    """Raised when a login or request limit is hit (the API turns it into HTTP 429)."""
+
+
+def recent(times, window):
+    now = time.time()
+    return [t for t in times if now - t < window]
+
+
+def allow_request(caller, limit=REQUESTS_PER_MINUTE):
+    """Sliding one-minute window per caller; raises TooManyAttempts when the limit is reached."""
+    times = recent(recent_requests.get(caller, []), 60)
+    if len(times) >= limit:
+        raise TooManyAttempts(f"Rate limit reached: {limit} requests per minute. Please wait and try again.")
+    times.append(time.time())
+    recent_requests[caller] = times
+
 
 def load_users():
     return json.loads(USERS_FILE.read_text()) if USERS_FILE.exists() else []
@@ -63,12 +88,19 @@ def public(user):
 
 
 def login(username, password):
+    # Lock the username after too many wrong passwords, so passwords can't be guessed by trying many
+    failures = recent(failed_logins.get(username, []), LOCKOUT_SECONDS)
+    if len(failures) >= MAX_FAILED_LOGINS:
+        raise TooManyAttempts("Too many failed sign-in attempts. Try again in 15 minutes.")
+
     user = find_user(username)
     # Same error for unknown user and wrong password, so the response doesn't reveal which usernames exist
-    if not user or not user.get("password_hash"):
+    if not user or not user.get("password_hash") or \
+            not secrets.compare_digest(hash_password(password, user["salt"]), user["password_hash"]):
+        failed_logins[username] = failures + [time.time()]
         raise ValueError("Invalid username or password")
-    if not secrets.compare_digest(hash_password(password, user["salt"]), user["password_hash"]):
-        raise ValueError("Invalid username or password")
+
+    failed_logins.pop(username, None)
     token = secrets.token_urlsafe(32)
     sessions[token] = {"username": username, "expires": time.time() + SESSION_HOURS * 3600}
     return token, public(user)

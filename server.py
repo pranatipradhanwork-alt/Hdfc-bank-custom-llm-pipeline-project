@@ -79,6 +79,9 @@ def read(function, *args):
 def login(request: LoginRequest):
     try:
         token, user = auth.login(request.username, request.password)
+    except auth.TooManyAttempts as error:
+        control_plane.audit(request.username, "login", "-", "denied", str(error))
+        raise HTTPException(status_code=429, detail=str(error))
     except ValueError as error:
         control_plane.audit(request.username, "login", "-", "failed", str(error))
         raise HTTPException(status_code=401, detail=str(error))
@@ -276,12 +279,19 @@ def rollback_deployment(deployment_id: str, authorization: str = Header(None)):
 def gateway_caller(authorization, x_api_key, assistant_id):
     """Applications use the app key; people use their login and must be assigned the assistant."""
     if APP_KEY and x_api_key == APP_KEY:
-        return "application"
-    user = current_user(authorization)
-    if not auth.can_use_assistant(user, assistant_id):
-        control_plane.audit(user["username"], "use_assistant", assistant_id, "denied", "Assistant not assigned")
-        raise HTTPException(status_code=403, detail="This assistant is not assigned to you")
-    return user["username"]
+        caller = "application"
+    else:
+        user = current_user(authorization)
+        if not auth.can_use_assistant(user, assistant_id):
+            control_plane.audit(user["username"], "use_assistant", assistant_id, "denied", "Assistant not assigned")
+            raise HTTPException(status_code=403, detail="This assistant is not assigned to you")
+        caller = user["username"]
+    try:
+        auth.allow_request(caller)
+    except auth.TooManyAttempts as error:
+        control_plane.audit(caller, "use_assistant", assistant_id, "denied", "Rate limit reached")
+        raise HTTPException(status_code=429, detail=str(error))
+    return caller
 
 
 @app.post("/v1/inference", response_model=InferenceResponse)
