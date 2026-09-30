@@ -28,10 +28,11 @@ def test_second_rollback_restores_original(registry_file):
 
 
 def test_promote_makes_version_live(registry_file):
-    rollback(registry_file)  # llama_v1 live
-    registry = promote("llama_v2", registry_file)
-    assert registry["live"] == "llama_v2"
-    assert registry["previous"] == "llama_v1"
+    before = load_registry(registry_file)
+    rollback(registry_file)  # the previous version is live again
+    registry = promote(before["live"], registry_file)
+    assert registry["live"] == before["live"]
+    assert registry["previous"] == before["previous"]
 
 
 def test_promote_rejects_unknown_version(registry_file):

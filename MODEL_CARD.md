@@ -1,13 +1,13 @@
-# Model card: HDFC FAQ assistant (`llama_v2`)
+# Model card: HDFC FAQ assistant (`llama_v3_1ep`)
 
 ## Summary
 
 | | |
 |---|---|
 | **What it is** | A LoRA adapter on `meta-llama/Llama-3.2-1B-Instruct` that answers HDFC Bank customer FAQs, used together with FAQ retrieval (RAG) and guardrails |
-| **Live version** | `llama_v2` (see [`registry.json`](registry.json)); previous version `llama_v1` is kept for rollback |
-| **Artifacts** | Private Hugging Face repo `shyam003/hdfc-faq-assistant` (`llama_v2/`, `llama_v1/`, `rag_index/`) |
-| **Adapter SHA-256** | `16e4545e77faa44b4631a5979cba62205c183c849cfd0e5be766512072e0a0e6` (checked at startup; the service refuses to start on a mismatch) |
+| **Live version** | `llama_v3_1ep` since 1 Oct 2026 (see [`registry.json`](registry.json)); previous version `llama_v2` is kept for rollback |
+| **Artifacts** | Private Hugging Face repo `hdfc-capstone/hdfc-faq-assistant` (`llama_v3_1ep/`, `llama_v2/`, `llama_v1/`, `rag_index/`) |
+| **Adapter SHA-256** | `1f3b0ab60de0039d0319e9c6986338d631b7fc9a16133a397e8ec0a5ee1bf048` (checked at startup; the service refuses to start on a mismatch) |
 | **Owners** | HDFC GenAI capstone team (AlmaBetter) |
 
 ## Intended use
@@ -30,8 +30,13 @@
 
 ## Training
 
-- QLoRA (4-bit base model + LoRA adapter), 3 epochs, seed 42, on one RTX 4050 (6 GB).
-- Config: `configs/training/cuda-qlora.yaml`. Code commit `35cd560`. MLflow run `d150a6f636ae472c832e3a33b9d5bf02`.
+- QLoRA (4-bit base model + LoRA adapter), seed 42, on one RTX 4050 (6 GB) under WSL.
+- **Trained on the served prompt** (`RAG_TRAINING=1`): each question with its own FAQ and two retrieved look-alike FAQs
+  in random order, so the model learns to answer from the right FAQ. 1 epoch (`NUM_EPOCHS=1`), about 8 minutes;
+  validation loss stopped improving after ~0.7 epochs, and a 3-epoch run (`llama_v3`) scored lower on reworded
+  questions (0.86 vs 0.91), so it was rejected.
+- Config: `configs/training/cuda-qlora.yaml`. Code commit `c37584e`. MLflow run `6db33e51b1d94c7ea3b42f150fb78762`.
+- Previous version `llama_v2`: plain question -> answer training, 3 epochs, code commit `35cd560`.
 
 ## How it answers
 
@@ -53,7 +58,8 @@ Held-out test split (140 questions) and 30 hand-reworded questions. "Base" is Ll
 | Base | 0.11 | 0.11 | 31% |
 | Fine-tuned | 0.22 | 0.24 | 19% |
 | Base + RAG | 0.47 | 0.49 | 6% |
-| **Fine-tuned + RAG (served)** | **0.82** | **0.51** | 7% |
+| Fine-tuned + RAG (`llama_v2`) | 0.82 | 0.51 | 7% |
+| **RAG-aware fine-tuned + RAG (`llama_v3_1ep`, served)** | **0.91** | **0.91** | 5% |
 
 - Retrieval finds the right FAQ in the top 3 for 94% of test questions (93% reworded).
 - **Quote the reworded score (0.51).** The 0.82 on the test split is inflated: the fine-tuned model has seen
@@ -119,10 +125,10 @@ Partly (main point right, something important missing) or Wrong. Sheets: `docs/h
 
 | Version | Data | Status | Notes |
 |---|---|---|---|
-| `llama_v2` | Delta v7 | **live** | De-duplicated data, frozen grouped splits |
-| `llama_v1` | Delta v4 | approved (rollback target) | Trained before de-duplication |
-| `llama_v3_1ep` | Delta v7 | pending (preferred candidate) | Trained on the served RAG prompt, 1 epoch. With retrieval ROUGE-L 0.91 held-out, 0.91 reworded (`llama_v2` 0.82 / 0.51); promptfoo 36 / 36. Needs a human review |
-| `llama_v3` | Delta v7 | pending | Same, 3 epochs. ROUGE-L 0.92 held-out, 0.86 reworded; promptfoo 36 / 36 |
+| `llama_v3_1ep` | Delta v7 | **live** (since 1 Oct 2026) | Trained on the served RAG prompt, 1 epoch. With retrieval ROUGE-L 0.91 held-out, 0.91 reworded (0.88 re-run on a Mac); promptfoo 36 / 36; human review 41/50 correct, 3 harmful |
+| `llama_v2` | Delta v7 | approved (rollback target) | Plain fine-tuning, 3 epochs. ROUGE-L 0.82 / 0.51; human review 31/50 correct, 5 harmful |
+| `llama_v1` | Delta v4 | approved | Trained before de-duplication |
+| `llama_v3` | Delta v7 | rejected | Same as `llama_v3_1ep` with 3 epochs; lower on reworded questions (0.86 vs 0.91) |
 
 Switch versions with `python registry.py --promote <version>` or `python registry.py --rollback`. Every change is
 recorded with a timestamp in `registry.json`, and the service verifies the checksum of whichever version it loads.
