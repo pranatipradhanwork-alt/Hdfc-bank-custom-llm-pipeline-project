@@ -811,6 +811,8 @@ function NewRunModal({ onClose, onDone, setToast }) {
   );
 }
 
+const HARDWARE_LABELS = { "CUDA (Quantized)": "NVIDIA GPU (QLoRA)", "MPS": "Apple GPU (MPS)", "CPU": "CPU" };
+
 function TrainingJobsPage({ user, setToast }) {
   const runs = useApi("/v1/runs");
   const [showForm, setShowForm] = useState(false);
@@ -820,15 +822,16 @@ function TrainingJobsPage({ user, setToast }) {
 
   return (
     <div className="fade-in">
-      <PageHeader title="Training Jobs" description="LoRA / QLoRA fine-tuning runs. They execute on an isolated GPU worker; every run records its base model, data version, config, seed and code commit."
+      <PageHeader title="Training Jobs" description="LoRA / QLoRA fine-tuning runs. They were run on a Windows NVIDIA GPU machine and on a Mac (Apple GPU); every run records its base model, data version, config, seed and code commit."
         action={user.permissions.includes("request_run") && <Button variant="primary" icon="plus" onClick={() => setShowForm(true)}>New Training Job</Button>} />
       <Card>
         <Table rows={rows} onRowClick={setOpen} columns={[
           { label: "Run", render: (r) => <span className="font-medium text-ink-900">{r.id}</span> },
           { label: "Base model", render: (r) => r.base_model },
+          { label: "Platform", render: (r) => r.platform ? `${r.platform} · ${HARDWARE_LABELS[r.device] || r.device}` : "-" },
           { label: "Data", render: (r) => `Delta v${r.dataset_version}` },
           { label: "Status", render: (r) => <Badge status={r.status} /> },
-          { label: "Steps", render: (r) => r.max_steps === -1 ? "full (3 epochs)" : r.max_steps ?? "-" },
+          { label: "Steps", render: (r) => r.max_steps === -1 ? `full (${r.epochs ?? 3} epoch${(r.epochs ?? 3) === 1 ? "" : "s"})` : r.max_steps ?? "-" },
           { label: "Test loss", render: (r) => r.test_loss ?? "-" },
           { label: "Duration", render: (r) => r.minutes != null ? `${r.minutes} min` : "-" },
           { label: "Started", render: (r) => formatTime(r.started_at || r.requested_at) },
@@ -960,6 +963,7 @@ function ModelsPage({ navigate }) {
               <div>
                 <p className="font-display text-base font-bold text-ink-900">{name}</p>
                 <p className="text-xs text-ink-400">{m.base_model || "-"}</p>
+                {m.training && m.training.platform && <p className="text-xs text-ink-400">Trained on {m.training.platform} · {m.training.device}</p>}
               </div>
               <Badge status={modelStatus(name, m, registry)} />
             </div>
@@ -1016,12 +1020,12 @@ function ModelDetailPage({ id, navigate, user, setToast }) {
         <Card className="p-6">
           <SectionTitle>Model information</SectionTitle>
           <Info items={[["Base model", m.base_model || "-"], ["Training run", m.run_id], ["Training data", training.dataset_version != null ? `Delta v${training.dataset_version}` : "-"],
-            ["Config", training.config || "-"], ["Code commit", training.git_commit || "-"], ["MLflow run", training.mlflow_run_id ? training.mlflow_run_id.slice(0, 12) + "…" : "-"],
+            ["Config", training.config || "-"], ["Trained on", training.platform ? `${training.platform} · ${training.device}` : "-"], ["Code commit", training.git_commit || "-"], ["MLflow run", training.mlflow_run_id ? training.mlflow_run_id.slice(0, 12) + "…" : "-"],
             ["Artifact", `HF repo folder ${m.hf_repo_folder}`], ["SHA-256", m.adapter_sha256]]} />
         </Card>
         <Card className="p-6">
           <SectionTitle>Evaluation</SectionTitle>
-          <Info items={Object.entries(m.evaluation).map(([k, v]) => [k.replace(/_/g, " "), String(v)])} />
+          <Info items={Object.entries(m.evaluation).map(([k, v]) => [k.replace(/_/g, " "), v == null ? "not measured" : String(v)])} />
         </Card>
         <Card className="p-6">
           <SectionTitle>Lifecycle</SectionTitle>
@@ -1043,12 +1047,12 @@ function ModelDetailPage({ id, navigate, user, setToast }) {
 function EvaluationsPage() {
   const models = useApi("/v1/models");
   if (!models.data) return <Loading error={models.error} />;
-  const rows = Object.entries(models.data.versions).map(([name, m]) => ({ name, ...m.evaluation }));
-  const chart = rows.map((r) => ({ name: r.name, test: r.rougeL_finetuned_with_rag, reworded: r.rougeL_finetuned_with_rag_reworded }));
+  const rows = Object.entries(models.data.versions).map(([name, m]) => ({ name, platform: (m.training || {}).platform, ...m.evaluation }));
+  const chart = rows.filter((r) => r.rougeL_finetuned_with_rag != null).map((r) => ({ name: r.name, test: r.rougeL_finetuned_with_rag, reworded: r.rougeL_finetuned_with_rag_reworded }));
 
   return (
     <div className="fade-in">
-      <PageHeader title="Model Evaluation" description="Quality before release. Base vs fine-tuned and with vs without retrieval are compared in evaluate.py; the release comparison is shown here." />
+      <PageHeader title="Model Evaluation" description="Quality before release. Base vs fine-tuned and with vs without retrieval are compared in evaluate.py; the release comparison is shown here. Models were trained and tested on both a Windows NVIDIA GPU machine and a Mac." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-6">
           <SectionTitle>ROUGE-L by version (fine-tuned + retrieval)</SectionTitle>
@@ -1075,11 +1079,13 @@ function EvaluationsPage() {
       <Card className="mt-6">
         <Table rows={rows} columns={[
           { label: "Version", render: (r) => <span className="font-medium text-ink-900">{r.name}</span> },
+          { label: "Trained on", render: (r) => r.platform || "-" },
           { label: "Eval data", render: (r) => `Delta v${r.dataset_version}` },
           { label: "ROUGE-L (test)", render: (r) => r.rougeL_finetuned_with_rag ?? "-" },
           { label: "ROUGE-L (reworded)", render: (r) => r.rougeL_finetuned_with_rag_reworded ?? "-" },
           { label: "Retrieval hit@3", render: (r) => r.retrieval_hit_at_3 ?? "-" },
           { label: "Unsupported figures", render: (r) => r.answers_with_unsupported_figures ?? "-" },
+          { label: "Safety (promptfoo)", render: (r) => r.safety_promptfoo || "-" },
           { label: "Report", render: (r) => <span className="font-mono text-xs">{r.report || "-"}</span> },
         ]} />
       </Card>
