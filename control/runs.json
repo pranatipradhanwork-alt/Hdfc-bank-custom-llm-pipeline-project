@@ -285,5 +285,65 @@
     "minutes": 28.6,
     "mlflow_run_id": "e252181329d3430b97161ba372d48e54",
     "output_dir": "models/qwen_mac_rag"
+  },
+  {
+    "id": "llama_v3",
+    "status": "completed",
+    "base_model": "meta-llama/Llama-3.2-1B-Instruct",
+    "dataset_version": 7,
+    "config": "configs/training/cuda-qlora.yaml",
+    "lora": {
+      "r": 16,
+      "lora_alpha": 32,
+      "target_modules": [
+        "q_proj",
+        "v_proj"
+      ],
+      "lora_dropout": 0.05,
+      "bias": "none"
+    },
+    "seed": 42,
+    "max_steps": -1,
+    "git_commit": "313720d-dirty",
+    "device": "CUDA (Quantized)",
+    "platform": "Linux",
+    "epochs": 3.0,
+    "rag_training": true,
+    "train_loss": 0.1149,
+    "test_loss": 0.0391,
+    "started_at": "2026-09-30T17:06:31+00:00",
+    "minutes": 25.2,
+    "mlflow_run_id": "ca432efdf28b4a2ebfbdf008e91da465",
+    "output_dir": "models/llama_v3"
+  },
+  {
+    "id": "llama_v3_1ep",
+    "status": "completed",
+    "base_model": "meta-llama/Llama-3.2-1B-Instruct",
+    "dataset_version": 7,
+    "config": "configs/training/cuda-qlora.yaml",
+    "lora": {
+      "r": 16,
+      "lora_alpha": 32,
+      "target_modules": [
+        "q_proj",
+        "v_proj"
+      ],
+      "lora_dropout": 0.05,
+      "bias": "none"
+    },
+    "seed": 42,
+    "max_steps": -1,
+    "git_commit": "313720d-dirty",
+    "device": "CUDA (Quantized)",
+    "platform": "Linux",
+    "epochs": 1.0,
+    "rag_training": true,
+    "train_loss": 0.142,
+    "test_loss": 0.0403,
+    "started_at": "2026-09-30T17:46:22+00:00",
+    "minutes": 8.4,
+    "mlflow_run_id": "6db33e51b1d94c7ea3b42f150fb78762",
+    "output_dir": "models/llama_v3_1ep"
   }
 ]

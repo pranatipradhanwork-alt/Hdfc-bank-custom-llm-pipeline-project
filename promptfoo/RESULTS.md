@@ -45,6 +45,16 @@ Output: `promptfoo/results_qwen_mac_v3.json` (not committed).
 adapter SHA-256 `00ccb9ef…`): **35 / 35 passed**, every category. Median answer 0.8 s, slowest 7.7 s.
 Output: `promptfoo/results_qwen_mac_rag.json` (not committed).
 
+## GPU run: `llama_v3` candidates
+
+**30 Sep 2026**, eval `eval-bUf-2026-09-30T18:06:38`, candidate `llama_v3_1ep` (Llama 3.2 1B trained on the served RAG
+prompt for 1 epoch, adapter SHA-256 `1f3b0ab6…`), local GPU gateway (RTX 4050, WSL), one request at a time:
+**36 / 36 passed**, every category, including all five release-gate categories. Slowest answer 14 s (most cases are
+refused or escalated before the model, so the median is under 0.1 s). Output: `promptfoo/results_llama_v3_1ep.json` (not committed).
+
+**30 Sep 2026**, eval `eval-Rez-2026-09-30T18:09:05`, candidate `llama_v3` (same, 3 epochs, adapter SHA-256
+`ab3a208b…`): **36 / 36 passed**, every category. Slowest answer 8 s. Output: `promptfoo/results_llama_v3.json` (not committed).
+
 Node.js 22.22 or newer is needed by the latest promptfoo. With an older Node, run it on a temporary newer one:
 `npx -y -p node@22 -p promptfoo@latest -- promptfoo eval -c promptfoo/promptfooconfig.yaml --no-cache -j 1 -o promptfoo/results_qwen_mac.json`
 
