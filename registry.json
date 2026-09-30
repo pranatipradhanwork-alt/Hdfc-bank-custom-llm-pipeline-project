@@ -62,7 +62,7 @@
       "notes": "Trained on de-duplicated Delta v7 with frozen grouped splits (0 test rows >= 0.95 similar to training)."
     },
     "qwen_mac_v2": {
-      "status": "pending",
+      "status": "rejected",
       "run_id": "qwen_mac_v2",
       "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
       "adapter_sha256": "a402e959f62f960e3122eafdf71ed171dbdedda333d40456c2d6d0ec31eacac6",
@@ -92,10 +92,10 @@
         "safety_report": "promptfoo/RESULTS.md",
         "dataset_same_as": 7
       },
-      "notes": "Qwen2.5 0.5B retrained on a Mac (Apple M2 GPU) on the de-duplicated data with frozen splits. Local Delta v3 has the same 1,405 FAQs and 1,124/141/140 split as the team's v7, and it is scored with the live v7 index, so it is directly comparable with llama_v2: ROUGE-L 0.62 vs 0.82 held-out and 0.35 vs 0.51 reworded, 2% vs 0% unsupported figures. llama_v2 stays live. Passed promptfoo 35/35 (slowest answer 6.7 s). Not uploaded to the HF repo."
+      "notes": "Rejected 30 Sep 2026: superseded by qwen_mac_rag (same model, data and epochs, trained on the served RAG prompt; reworded ROUGE-L 0.74 vs 0.35). Qwen2.5 0.5B retrained on a Mac (Apple M2 GPU) on the de-duplicated data with frozen splits. Local Delta v3 has the same 1,405 FAQs and 1,124/141/140 split as the team's v7, and it is scored with the live v7 index, so it is directly comparable with llama_v2: ROUGE-L 0.62 vs 0.82 held-out and 0.35 vs 0.51 reworded, 2% vs 0% unsupported figures. llama_v2 stays live. Passed promptfoo 35/35 (slowest answer 6.7 s). Not uploaded to the HF repo."
     },
     "qwen_mac_v3": {
-      "status": "pending",
+      "status": "rejected",
       "run_id": "qwen_mac_v3",
       "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
       "adapter_sha256": "d2cc612e3c9c1037855176cfe5858517742510e15c6d560e3892feda27107707",
@@ -125,7 +125,7 @@
         "safety_report": "promptfoo/RESULTS.md",
         "dataset_same_as": 7
       },
-      "notes": "Same as qwen_mac_v2 but 3 epochs (NUM_EPOCHS=3), to match the GPU runs. Test loss improved (2.45 vs 2.52) but answers with retrieval got worse: ROUGE-L 0.54 vs 0.62 held-out and 0.27 vs 0.35 reworded, 2.9% unsupported figures. The extra epochs made it lean on memorised answers instead of the retrieved FAQs, so 1 epoch is the better setting for Qwen with RAG. Passed promptfoo 35/35. Not uploaded to the HF repo."
+      "notes": "Rejected 30 Sep 2026: 3 epochs scored worse than 1 epoch (qwen_mac_v2) on every with-retrieval measure. Same as qwen_mac_v2 but 3 epochs (NUM_EPOCHS=3), to match the GPU runs. Test loss improved (2.45 vs 2.52) but answers with retrieval got worse: ROUGE-L 0.54 vs 0.62 held-out and 0.27 vs 0.35 reworded, 2.9% unsupported figures. The extra epochs made it lean on memorised answers instead of the retrieved FAQs, so 1 epoch is the better setting for Qwen with RAG. Passed promptfoo 35/35. Not uploaded to the HF repo."
     },
     "qwen_mac_rag": {
       "status": "pending",
@@ -180,6 +180,20 @@
       "action": "register",
       "from": null,
       "to": "qwen_mac_rag"
+    },
+    {
+      "time": "2026-09-30T15:15:09+00:00",
+      "action": "rejected",
+      "from": null,
+      "to": "qwen_mac_v2",
+      "by": "admin"
+    },
+    {
+      "time": "2026-09-30T15:15:09+00:00",
+      "action": "rejected",
+      "from": null,
+      "to": "qwen_mac_v3",
+      "by": "admin"
     }
   ]
 }
