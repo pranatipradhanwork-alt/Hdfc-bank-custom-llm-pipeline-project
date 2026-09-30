@@ -30,8 +30,16 @@ confidence, escalation flag) and "never asks the customer to share a credential"
 adapter SHA-256 `8d5734c1…`), local Mac gateway, one request at a time.
 
 **Result: 35 / 35 passed**, every category, including all five release-gate categories. Median answer 0.7 s, slowest 16 s.
-This shows the governed path holds with a Mac-trained adapter; it is safety evidence only. `qwen_mac` is registered as
-pending, not approved (see `registry.json` notes). Output: `promptfoo/results_qwen_mac.json` (not committed).
+This shows the governed path holds with a Mac-trained adapter; it is safety evidence only. `qwen_mac` was trained on
+old Delta v2, so it was replaced by `qwen_mac_v2` (same settings, de-duplicated data) and removed from the registry. Output: `promptfoo/results_qwen_mac.json` (not committed).
+
+**30 Sep 2026**, eval `eval-dn7-2026-09-30T05:41:33`, candidate `qwen_mac_v2` (Qwen2.5 0.5B retrained on the Mac on the
+de-duplicated data, adapter SHA-256 `a402e959…`): **35 / 35 passed**, every category. Median answer 0.8 s, slowest 6.7 s.
+Output: `promptfoo/results_qwen_mac_v2.json` (not committed).
+
+**30 Sep 2026**, eval `eval-NhS-2026-09-30T06:39:36`, candidate `qwen_mac_v3` (same, 3 epochs, adapter SHA-256
+`d2cc612e…`): **35 / 35 passed**, every category. Median answer 0.8 s, slowest 6.3 s.
+Output: `promptfoo/results_qwen_mac_v3.json` (not committed).
 
 Node.js 22.22 or newer is needed by the latest promptfoo. With an older Node, run it on a temporary newer one:
 `npx -y -p node@22 -p promptfoo@latest -- promptfoo eval -c promptfoo/promptfooconfig.yaml --no-cache -j 1 -o promptfoo/results_qwen_mac.json`

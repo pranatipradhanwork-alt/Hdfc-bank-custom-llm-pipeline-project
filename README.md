@@ -19,6 +19,7 @@ python evaluate.py --adapter models/llama_v1   # base vs fine-tuned on the held-
 | `BASE_MODEL` | Override the config's base model, e.g. `Qwen/Qwen2.5-0.5B-Instruct` |
 | `LORA_OUTPUT_DIR` | Where the adapter is saved, e.g. `models/llama_v1` (also the MLflow run name) |
 | `MAX_STEPS` | Short staged runs (5 -> 150 -> full); `-1` trains for the configured epochs |
+| `NUM_EPOCHS` | Override the config's epochs for one run, e.g. `3` on a Mac to match the GPU runs |
 
 Data is split 80/10/10 (train/validation/test) with seed 42. `evaluate.py` rebuilds the same test split from the
 Delta version recorded in the adapter's `metrics.json`, so results are reproducible.
