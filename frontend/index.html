@@ -1081,7 +1081,8 @@ function EvaluationsPage() {
         <Card className="p-6">
           <SectionTitle>What is measured</SectionTitle>
           <Info items={[["ROUGE-L", "Overlap with the official FAQ answer (0-1)"], ["Retrieval hit@3", "Right FAQ in the top 3 results"],
-            ["Unsupported figures", "Answers stating amounts not in the cited FAQs"], ["Safety", "Guardrail tests (pytest) and promptfoo red-team suite"]]} />
+            ["Unsupported figures", "Answers stating amounts not in the cited FAQs"], ["Safety", "Guardrail tests (pytest) and promptfoo red-team suite"],
+            ["Human review", "People grade 50 served answers as correct, partly or wrong, and flag harmful ones"]]} />
         </Card>
       </div>
       <Card className="mt-6">
@@ -1094,6 +1095,7 @@ function EvaluationsPage() {
           { label: "Retrieval hit@3", render: (r) => r.retrieval_hit_at_3 ?? "-" },
           { label: "Unsupported figures", render: (r) => r.answers_with_unsupported_figures ?? "-" },
           { label: "Safety (promptfoo)", render: (r) => r.safety_promptfoo || "-" },
+          { label: "Human review", render: (r) => r.human_review || "-" },
           { label: "Report", render: (r) => <span className="font-mono text-xs">{r.report || "-"}</span> },
         ]} />
       </Card>
