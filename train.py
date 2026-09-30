@@ -26,6 +26,8 @@ LORA_OUTPUT_DIR=Path(os.getenv("LORA_OUTPUT_DIR","models/hdfc_lora_adapter"))
 
 #Staged runs: MAX_STEPS=5 (smoke test) -> MAX_STEPS=150 (~1 epoch) -> unset (full run from config epochs)
 MAX_STEPS=int(os.getenv("MAX_STEPS","-1"))
+#Optional override of the config's epochs for one run, e.g. NUM_EPOCHS=3 to match the GPU runs on a Mac
+NUM_EPOCHS=os.getenv("NUM_EPOCHS")
 
 #One seed for data split, LoRA init and trainer shuffling, so runs are reproducible
 SEED=int(os.getenv("SEED","42"))
@@ -236,7 +238,7 @@ training_arguments = SFTConfig(
     per_device_train_batch_size=int(train_cfg.get("per_device_train_batch_size", 2)),
     per_device_eval_batch_size=int(train_cfg.get("per_device_eval_batch_size", 2)),
     gradient_accumulation_steps=int(train_cfg.get("gradient_accumulation_steps", 4)),
-    num_train_epochs=int(train_cfg.get("num_train_epochs", 1)),
+    num_train_epochs=int(NUM_EPOCHS or train_cfg.get("num_train_epochs", 1)),
     learning_rate=float(train_cfg.get("learning_rate", 2e-4)),
     weight_decay=float(train_cfg.get("weight_decay", 0.0)),
     warmup_steps=int(train_cfg.get("warmup_steps", 10)),
