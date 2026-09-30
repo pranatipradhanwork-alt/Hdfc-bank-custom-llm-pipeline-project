@@ -164,6 +164,8 @@ def main():
     parser.add_argument("--max-new-tokens", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--rag", action="store_true", help="Also score both models with retrieved FAQs (run rag.py --build first)")
+    parser.add_argument("--index", default="models/rag_index",
+                        help="RAG index folder used with --rag, e.g. an index built from the adapter's own Delta version")
     parser.add_argument("--reworded", action="store_true", help=f"Use the reworded questions in {REWORDED_QUESTIONS}")
     parser.add_argument("--dataset-version", type=int,
                         help="Delta version for questions/references (default: the RAG index version with --rag, else the training version)")
@@ -195,7 +197,7 @@ def main():
     index = None
     if args.rag:
         from rag import FaqIndex, rag_messages
-        index = FaqIndex()
+        index = FaqIndex(Path(args.index))
     default_version = index.meta["dataset_version"] if index else train_metrics["dataset_version"]
     dataset_version = args.dataset_version if args.dataset_version is not None else default_version
     if dataset_version != train_metrics["dataset_version"]:
