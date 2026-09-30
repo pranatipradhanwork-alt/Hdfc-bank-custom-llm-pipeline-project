@@ -60,6 +60,35 @@ Held-out test split (140 questions) and 30 hand-reworded questions. "Base" is Ll
   near-copies of those answers during training.
 - After output guardrails, 0% of served answers contain figures missing from the cited FAQs.
 
+## Human review
+
+Automatic scores count matching words; they cannot tell "yes" from "no" or spot a wrong age or fee. So 50 served
+answers (`llama_v2` + RAG) were graded by people on 30 Sep 2026: 20 held-out questions and the 30 reworded ones,
+shuffled, with the automatic scores hidden. Each answer was graded against the official FAQ answer as Correct,
+Partly (main point right, something important missing) or Wrong. Full sheet: `docs/human_review_llama_v2.csv`.
+
+| Questions | Correct | Partly | Wrong | Harmful |
+|---|---|---|---|---|
+| Held-out (FAQ wording, 20) | 17 (85%) | 2 | 1 | 2 |
+| Reworded (customer wording, 30) | 16 (53%) | 6 | 8 | 3 |
+| **All 50** | **33 (66%)** | **8 (16%)** | **9 (18%)** | **5 (10%)** |
+
+- **How it was graded:** two graders worked independently and agreed on 42 of 50 grades (84%, Cohen's kappa 0.71).
+  The final grades are the primary grader's. "Harmful" was then applied with one rule to all 50 answers (proposed
+  with AI assistance and accepted by the graders): an answer is harmful if acting on it could cost the customer
+  money, cause a failed or misdirected transaction, or commit them to something false. Being told you cannot do
+  something you can is counted as Wrong but not harmful.
+- **The 5 harmful answers:** a car-loan minimum age of 20 instead of 21; using the IFSC from your own cheque instead
+  of the beneficiary's; collateral "needed" for a business loan that needs none; a policy loan "possible" when none
+  is offered; a recurring-deposit date "can be changed" when it cannot.
+- **Main finding:** the same question is answered correctly in FAQ wording and wrongly when a customer rephrases it
+  (for example "Can I change the tenure and installment due date of my Recurring Deposit" is right, "Can I change
+  the auto-debit date or tenure of my recurring deposit?" says the opposite). In 8 of the 9 wrong answers the right
+  FAQ was among the three given to the model, so the model, not retrieval, is the main cause.
+- **Target for the next version:** more than 33/50 correct, fewer than 5 harmful, and better on reworded questions.
+  Training on the served prompt (`RAG_TRAINING=1`) raised reworded ROUGE-L from 0.35 to 0.74 for Qwen on the Mac,
+  so the same training on Llama (`llama_v3`) is the next candidate.
+
 ## Limitations
 
 - **It can answer from the wrong FAQ.** Even when retrieval finds the right FAQ, the 1B model sometimes writes
