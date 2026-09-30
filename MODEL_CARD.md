@@ -1,13 +1,13 @@
-# Model card: HDFC FAQ assistant (`llama_v2`)
+# Model card: HDFC FAQ assistant (`llama_v3_1ep`)
 
 ## Summary
 
 | | |
 |---|---|
 | **What it is** | A LoRA adapter on `meta-llama/Llama-3.2-1B-Instruct` that answers HDFC Bank customer FAQs, used together with FAQ retrieval (RAG) and guardrails |
-| **Live version** | `llama_v2` (see [`registry.json`](registry.json)); previous version `llama_v1` is kept for rollback |
-| **Artifacts** | Private Hugging Face repo `shyam003/hdfc-faq-assistant` (`llama_v2/`, `llama_v1/`, `rag_index/`) |
-| **Adapter SHA-256** | `16e4545e77faa44b4631a5979cba62205c183c849cfd0e5be766512072e0a0e6` (checked at startup; the service refuses to start on a mismatch) |
+| **Live version** | `llama_v3_1ep` since 1 Oct 2026 (see [`registry.json`](registry.json)); previous version `llama_v2` is kept for rollback |
+| **Artifacts** | Private Hugging Face repo `hdfc-capstone/hdfc-faq-assistant` (`llama_v3_1ep/`, `llama_v2/`, `llama_v1/`, `rag_index/`) |
+| **Adapter SHA-256** | `1f3b0ab60de0039d0319e9c6986338d631b7fc9a16133a397e8ec0a5ee1bf048` (checked at startup; the service refuses to start on a mismatch) |
 | **Owners** | HDFC GenAI capstone team (AlmaBetter) |
 
 ## Intended use
@@ -30,8 +30,13 @@
 
 ## Training
 
-- QLoRA (4-bit base model + LoRA adapter), 3 epochs, seed 42, on one RTX 4050 (6 GB).
-- Config: `configs/training/cuda-qlora.yaml`. Code commit `35cd560`. MLflow run `d150a6f636ae472c832e3a33b9d5bf02`.
+- QLoRA (4-bit base model + LoRA adapter), seed 42, on one RTX 4050 (6 GB) under WSL.
+- **Trained on the served prompt** (`RAG_TRAINING=1`): each question with its own FAQ and two retrieved look-alike FAQs
+  in random order, so the model learns to answer from the right FAQ. 1 epoch (`NUM_EPOCHS=1`), about 8 minutes;
+  validation loss stopped improving after ~0.7 epochs, and a 3-epoch run (`llama_v3`) scored lower on reworded
+  questions (0.86 vs 0.91), so it was rejected.
+- Config: `configs/training/cuda-qlora.yaml`. Code commit `c37584e`. MLflow run `6db33e51b1d94c7ea3b42f150fb78762`.
+- Previous version `llama_v2`: plain question -> answer training, 3 epochs, code commit `35cd560`.
 
 ## How it answers
 
@@ -53,7 +58,8 @@ Held-out test split (140 questions) and 30 hand-reworded questions. "Base" is Ll
 | Base | 0.11 | 0.11 | 31% |
 | Fine-tuned | 0.22 | 0.24 | 19% |
 | Base + RAG | 0.47 | 0.49 | 6% |
-| **Fine-tuned + RAG (served)** | **0.82** | **0.51** | 7% |
+| Fine-tuned + RAG (`llama_v2`) | 0.82 | 0.51 | 7% |
+| **RAG-aware fine-tuned + RAG (`llama_v3_1ep`, served)** | **0.91** | **0.91** | 5% |
 
 - Retrieval finds the right FAQ in the top 3 for 94% of test questions (93% reworded).
 - **Quote the reworded score (0.51).** The 0.82 on the test split is inflated: the fine-tuned model has seen
@@ -62,32 +68,35 @@ Held-out test split (140 questions) and 30 hand-reworded questions. "Base" is Ll
 
 ## Human review
 
-Automatic scores count matching words; they cannot tell "yes" from "no" or spot a wrong age or fee. So 50 served
-answers (`llama_v2` + RAG) were graded by people on 30 Sep 2026: 20 held-out questions and the 30 reworded ones,
+Automatic scores count matching words; they cannot tell "yes" from "no" or spot a wrong age or fee. So the same
+50 served answers (with RAG) were graded by people for each model: 20 held-out questions and the 30 reworded ones,
 shuffled, with the automatic scores hidden. Each answer was graded against the official FAQ answer as Correct,
-Partly (main point right, something important missing) or Wrong. Full sheet: `docs/human_review_llama_v2.csv`.
+Partly (main point right, something important missing) or Wrong. Sheets: `docs/human_review_llama_v2.csv`,
+`docs/human_review_llama_v3_1ep.csv`.
 
-| Questions | Correct | Partly | Wrong | Harmful |
-|---|---|---|---|---|
-| Held-out (FAQ wording, 20) | 17 (85%) | 2 | 1 | 2 |
-| Reworded (customer wording, 30) | 16 (53%) | 6 | 8 | 3 |
-| **All 50** | **33 (66%)** | **8 (16%)** | **9 (18%)** | **5 (10%)** |
+| Model | Held-out correct (20) | Reworded correct (30) | **Correct (50)** | Partly | Wrong | **Harmful** |
+|---|---|---|---|---|---|---|
+| `llama_v2` (plain fine-tuning) | 15 (75%) | 16 (53%) | **31 (62%)** | 10 | 9 | **5 (10%)** |
+| `llama_v3_1ep` (RAG-aware training) | 16 (80%) | 25 (83%) | **41 (82%)** | 8 | 1 | **3 (6%)** |
 
-- **How it was graded:** two graders worked independently and agreed on 42 of 50 grades (84%, Cohen's kappa 0.71).
-  The final grades are the primary grader's. "Harmful" was then applied with one rule to all 50 answers (proposed
-  with AI assistance and accepted by the graders): an answer is harmful if acting on it could cost the customer
-  money, cause a failed or misdirected transaction, or commit them to something false. Being told you cannot do
-  something you can is counted as Wrong but not harmful.
-- **The 5 harmful answers:** a car-loan minimum age of 20 instead of 21; using the IFSC from your own cheque instead
-  of the beneficiary's; collateral "needed" for a business loan that needs none; a policy loan "possible" when none
-  is offered; a recurring-deposit date "can be changed" when it cannot.
-- **Main finding:** the same question is answered correctly in FAQ wording and wrongly when a customer rephrases it
-  (for example "Can I change the tenure and installment due date of my Recurring Deposit" is right, "Can I change
-  the auto-debit date or tenure of my recurring deposit?" says the opposite). In 8 of the 9 wrong answers the right
-  FAQ was among the three given to the model, so the model, not retrieval, is the main cause.
-- **Target for the next version:** more than 33/50 correct, fewer than 5 harmful, and better on reworded questions.
-  Training on the served prompt (`RAG_TRAINING=1`) raised reworded ROUGE-L from 0.35 to 0.74 for Qwen on the Mac,
-  so the same training on Llama (`llama_v3`) is the next candidate.
+- **How it was graded:** for `llama_v2`, two graders worked independently and agreed on 42 of 50 grades (84%,
+  Cohen's kappa 0.71); the final grades are the primary grader's. `llama_v3_1ep` was graded by the primary grader.
+  15 answers are word for word the same in both models; two of them (#20 lost card, #30 tax Act year) had been
+  graded differently, so both were set to Partly in both sheets to keep the comparison fair. "Harmful" was applied
+  with one rule to every answer of both models (proposed with AI assistance and accepted by the graders): an answer
+  is harmful if acting on it could cost the customer money, cause a failed or misdirected transaction, or commit
+  them to something false. Being told you cannot do something you can is Wrong but not harmful.
+- **llama_v2's 5 harmful answers:** a car-loan minimum age of 20 instead of 21; using the IFSC from your own cheque
+  instead of the beneficiary's; collateral "needed" for a business loan that needs none; a policy loan "possible"
+  when none is offered; a recurring-deposit date "can be changed" when it cannot.
+- **llama_v3_1ep** fixes the IFSC, policy-loan and recurring-deposit answers. Its 3 harmful answers: the
+  self-employed car-loan minimum age of 20 instead of 21 (two questions) and collateral described for a business
+  loan that needs none. 10 answers improved, 1 became less complete (#20 lost card, missing the back-up card option
+  in both models), none became wrong.
+- **Main finding:** `llama_v2` answered correctly in FAQ wording but often wrongly when a customer rephrased the
+  question, although in 8 of its 9 wrong answers the right FAQ was in the prompt. It had been trained on question ->
+  answer only. Training on the served prompt (`RAG_TRAINING=1`: the question with its FAQ and two look-alike FAQs)
+  raised reworded questions from 16/30 to 25/30 correct.
 
 ## Limitations
 
@@ -116,10 +125,10 @@ Partly (main point right, something important missing) or Wrong. Full sheet: `do
 
 | Version | Data | Status | Notes |
 |---|---|---|---|
-| `llama_v2` | Delta v7 | **live** | De-duplicated data, frozen grouped splits |
-| `llama_v1` | Delta v4 | approved (rollback target) | Trained before de-duplication |
-| `llama_v3_1ep` | Delta v7 | pending (preferred candidate) | Trained on the served RAG prompt, 1 epoch. With retrieval ROUGE-L 0.91 held-out, 0.91 reworded (`llama_v2` 0.82 / 0.51); promptfoo 36 / 36. Needs a human review |
-| `llama_v3` | Delta v7 | pending | Same, 3 epochs. ROUGE-L 0.92 held-out, 0.86 reworded; promptfoo 36 / 36 |
+| `llama_v3_1ep` | Delta v7 | **live** (since 1 Oct 2026) | Trained on the served RAG prompt, 1 epoch. With retrieval ROUGE-L 0.91 held-out, 0.91 reworded (0.88 re-run on a Mac); promptfoo 36 / 36; human review 41/50 correct, 3 harmful |
+| `llama_v2` | Delta v7 | approved (rollback target) | Plain fine-tuning, 3 epochs. ROUGE-L 0.82 / 0.51; human review 31/50 correct, 5 harmful |
+| `llama_v1` | Delta v4 | approved | Trained before de-duplication |
+| `llama_v3` | Delta v7 | rejected | Same as `llama_v3_1ep` with 3 epochs; lower on reworded questions (0.86 vs 0.91) |
 
 Switch versions with `python registry.py --promote <version>` or `python registry.py --rollback`. Every change is
 recorded with a timestamp in `registry.json`, and the service verifies the checksum of whichever version it loads.
