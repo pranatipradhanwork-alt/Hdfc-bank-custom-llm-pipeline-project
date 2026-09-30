@@ -126,6 +126,40 @@
         "dataset_same_as": 7
       },
       "notes": "Same as qwen_mac_v2 but 3 epochs (NUM_EPOCHS=3), to match the GPU runs. Test loss improved (2.45 vs 2.52) but answers with retrieval got worse: ROUGE-L 0.54 vs 0.62 held-out and 0.27 vs 0.35 reworded, 2.9% unsupported figures. The extra epochs made it lean on memorised answers instead of the retrieved FAQs, so 1 epoch is the better setting for Qwen with RAG. Passed promptfoo 35/35. Not uploaded to the HF repo."
+    },
+    "qwen_mac_rag": {
+      "status": "pending",
+      "run_id": "qwen_mac_rag",
+      "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+      "adapter_sha256": "00ccb9ef66e902a8b1cc35ad0de6976e4253c4dcc971bb6d491d95ce0f0a2b85",
+      "hf_repo_folder": "qwen_mac_rag",
+      "training": {
+        "dataset_version": 3,
+        "config": "configs/training/mac-lora.yaml",
+        "platform": "macOS",
+        "device": "Apple GPU (MPS)",
+        "git_commit": "d900253",
+        "mlflow_run_id": "e252181329d3430b97161ba372d48e54",
+        "rows": {
+          "train": 1124,
+          "validation": 141,
+          "test": 140
+        },
+        "rag_training": true
+      },
+      "evaluation": {
+        "report": "reports/eval_qwen_mac_rag_rag.json",
+        "dataset_version": 3,
+        "dataset_same_as": 7,
+        "rougeL_finetuned_with_rag": 0.9227,
+        "rougeL_finetuned_with_rag_reworded": 0.7448,
+        "retrieval_hit_at_3": 0.9357,
+        "answers_with_unsupported_figures": 0.0143,
+        "rougeL_finetuned_without_rag": 0.1566,
+        "safety_promptfoo": "35/35 passed",
+        "safety_report": "promptfoo/RESULTS.md"
+      },
+      "notes": "Same model, data and 1 epoch as qwen_mac_v2, but trained on the served prompt (RAG_TRAINING=1): each question with its own FAQ and 2 retrieved look-alike FAQs in random order. With retrieval it scores ROUGE-L 0.92 held-out and 0.74 reworded (qwen_mac_v2 0.62 / 0.35, llama_v2 0.82 / 0.51), 1.4% unsupported figures, promptfoo 35/35. It now copies the chosen FAQ nearly word for word, so ROUGE-L is partly inflated; remaining errors are picking a look-alike FAQ (e.g. car loan 85% vs 100%). Needs a human review before any release; the same training on Llama is the next release candidate. Not uploaded to the HF repo."
     }
   },
   "history": [
@@ -140,6 +174,12 @@
       "action": "register",
       "from": null,
       "to": "qwen_mac_v3"
+    },
+    {
+      "time": "2026-09-30T14:47:40+00:00",
+      "action": "register",
+      "from": null,
+      "to": "qwen_mac_rag"
     }
   ]
 }

@@ -280,6 +280,8 @@ def sync_runs_from_mlflow(tracking_uri="sqlite:///mlflow.db", experiment="hdfc-b
             # Runs from before the platform tag: an MPS device can only be a Mac
             "platform": tags.get("platform") or ("macOS" if tags.get("device") == "MPS" else None),
             "epochs": round(metrics["epoch"], 2) if "epoch" in metrics else None,
+            # Trained on the served prompt (question + retrieved FAQs); its loss is not comparable with plain runs
+            "rag_training": tags.get("rag_training") == "True",
             "train_loss": round(metrics["train_loss"], 4) if "train_loss" in metrics else None,
             "test_loss": round(metrics["test_loss"], 4) if "test_loss" in metrics else None,
             "started_at": datetime.fromtimestamp(mlflow_run.info.start_time / 1000, timezone.utc).isoformat(timespec="seconds"),

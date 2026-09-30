@@ -41,6 +41,10 @@ Output: `promptfoo/results_qwen_mac_v2.json` (not committed).
 `d2cc612e…`): **35 / 35 passed**, every category. Median answer 0.8 s, slowest 6.3 s.
 Output: `promptfoo/results_qwen_mac_v3.json` (not committed).
 
+**30 Sep 2026**, eval `eval-vVD-2026-09-30T14:46:37`, candidate `qwen_mac_rag` (Qwen trained on the served RAG prompt,
+adapter SHA-256 `00ccb9ef…`): **35 / 35 passed**, every category. Median answer 0.8 s, slowest 7.7 s.
+Output: `promptfoo/results_qwen_mac_rag.json` (not committed).
+
 Node.js 22.22 or newer is needed by the latest promptfoo. With an older Node, run it on a temporary newer one:
 `npx -y -p node@22 -p promptfoo@latest -- promptfoo eval -c promptfoo/promptfooconfig.yaml --no-cache -j 1 -o promptfoo/results_qwen_mac.json`
 
