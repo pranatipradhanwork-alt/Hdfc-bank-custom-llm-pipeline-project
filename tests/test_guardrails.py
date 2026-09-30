@@ -8,6 +8,17 @@ def test_masks_identifiers_and_secrets():
     assert set(found) == {"MASKED_ACCOUNT_OR_CARD", "MASKED_PHONE_NUMBER", "MASKED_EMAIL", "MASKED_SECRET"}
 
 
+def test_masks_card_numbers_typed_with_spaces_or_dashes():
+    for card in ("4111 1111 1111 1111", "4532-0151-1283-0366", "3782 822463 10005"):
+        text, found = mask_sensitive(f"My card {card} was declined")
+        assert card not in text and found == ["MASKED_ACCOUNT_OR_CARD"]
+
+
+def test_spaced_numbers_that_are_not_cards_are_kept():
+    for text in ("Call 022 3327 1010", "Call 1800 202 6161", "Years 15 16 17 18 19 20 21 22 23", "Rs. 5,00,000 7,50,000"):
+        assert mask_sensitive(text) == (text, [])
+
+
 def test_plain_mentions_of_pin_are_not_masked():
     assert mask_sensitive("How do I change my ATM PIN?") == ("How do I change my ATM PIN?", [])
 
