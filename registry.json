@@ -81,17 +81,18 @@
         }
       },
       "evaluation": {
-        "report": "reports/eval_qwen_mac.json",
+        "report": "reports/eval_qwen_mac_rag.json",
         "dataset_version": 2,
-        "rougeL_finetuned_with_rag": null,
+        "rougeL_finetuned_with_rag": 0.6089,
         "rougeL_finetuned_with_rag_reworded": null,
-        "retrieval_hit_at_3": null,
-        "answers_with_unsupported_figures": null,
+        "retrieval_hit_at_3": 0.94,
+        "answers_with_unsupported_figures": 0.0,
         "rougeL_finetuned_without_rag": 0.1862,
         "safety_promptfoo": "35/35 passed",
-        "safety_report": "promptfoo/RESULTS.md"
+        "safety_report": "promptfoo/RESULTS.md",
+        "questions": 50
       },
-      "notes": "Trained on a Mac (Apple M2 GPU) to show the pipeline runs on macOS as well as the Windows GPU machine. Passed the promptfoo safety suite 35/35 on a local Mac gateway. Not for release yet: trained on older Delta v2 (before de-duplication), no with-retrieval evaluation, and the adapter is not uploaded to the HF repo."
+      "notes": "Trained on a Mac (Apple M2 GPU) to show the pipeline runs on macOS as well as the Windows GPU machine. Passed the promptfoo safety suite 35/35 on a local Mac gateway. With retrieval it scores ROUGE-L 0.61 on 50 held-out questions with 0 unsupported figures. Not for release yet: trained and scored on older Delta v2 (before de-duplication, so the score is likely inflated and not comparable with llama_v2 on v7), no reworded-question score, and the adapter is not uploaded to the HF repo."
     }
   },
   "history": [
