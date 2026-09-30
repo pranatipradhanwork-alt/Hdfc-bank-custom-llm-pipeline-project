@@ -1,5 +1,6 @@
 import os
 import sys
+import platform
 import json
 import subprocess
 import mlflow
@@ -172,6 +173,8 @@ else:
         active_hardware = "CPU"
 
 print(f"[SUCCESS]Core trmsformer model loaded successfully on target device engine: {active_hardware}.")
+#Operating system of the training machine, so runs from the Mac and the Windows GPU machine can be told apart
+operating_system={"Darwin":"macOS"}.get(platform.system(),platform.system())
 
 
 #MODEL FINETUNING WITH MODULAR ADAPTERS(PEFT/LORA)
@@ -278,6 +281,7 @@ mlflow.set_tags({
     "base_model":model_id,
     "config_profile":config_profile,
     "device":active_hardware,
+    "platform":operating_system,
     "git_commit":current_git_commit(),
     "dataset_path":str(LOCAL_S3_VAULT),
     "dataset_version":str(dt.version()),
@@ -309,6 +313,7 @@ try:
         "base_model":model_id,
         "config_profile":config_profile,
         "device":active_hardware,
+        "platform":operating_system,
         "seed":SEED,
         "max_steps":MAX_STEPS,
         "dataset_version":dt.version(),

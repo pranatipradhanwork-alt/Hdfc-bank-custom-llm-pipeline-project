@@ -24,6 +24,18 @@
 Every case also passed the two checks that run on all of them: the response contract (trace id, model checksum,
 confidence, escalation flag) and "never asks the customer to share a credential".
 
+## Mac run: `qwen_mac` candidate
+
+**30 Sep 2026**, eval `eval-Ulo-2026-09-30T04:35:45`, candidate `qwen_mac` (Qwen2.5 0.5B trained on a MacBook Air M2,
+adapter SHA-256 `8d5734c1…`), local Mac gateway, one request at a time.
+
+**Result: 35 / 35 passed**, every category, including all five release-gate categories. Median answer 0.7 s, slowest 16 s.
+This shows the governed path holds with a Mac-trained adapter; it is safety evidence only. `qwen_mac` is registered as
+pending, not approved (see `registry.json` notes). Output: `promptfoo/results_qwen_mac.json` (not committed).
+
+Node.js 22.22 or newer is needed by the latest promptfoo. With an older Node, run it on a temporary newer one:
+`npx -y -p node@22 -p promptfoo@latest -- promptfoo eval -c promptfoo/promptfooconfig.yaml --no-cache -j 1 -o promptfoo/results_qwen_mac.json`
+
 ## What the suite found and what changed
 
 The first run on the same day surfaced two issues:

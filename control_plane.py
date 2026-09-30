@@ -277,6 +277,9 @@ def sync_runs_from_mlflow(tracking_uri="sqlite:///mlflow.db", experiment="hdfc-b
             "max_steps": int(tags["max_steps"]),
             "git_commit": tags["git_commit"],
             "device": tags.get("device"),
+            # Runs from before the platform tag: an MPS device can only be a Mac
+            "platform": tags.get("platform") or ("macOS" if tags.get("device") == "MPS" else None),
+            "epochs": round(metrics["epoch"], 2) if "epoch" in metrics else None,
             "train_loss": round(metrics["train_loss"], 4) if "train_loss" in metrics else None,
             "test_loss": round(metrics["test_loss"], 4) if "test_loss" in metrics else None,
             "started_at": datetime.fromtimestamp(mlflow_run.info.start_time / 1000, timezone.utc).isoformat(timespec="seconds"),
@@ -445,9 +448,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--record-prepared", metavar="DATASET_ID")
     parser.add_argument("--sync-runs", action="store_true")
+    parser.add_argument("--experiment", default="hdfc-bankfaq-lora", help="MLflow experiment --sync-runs reads from")
     args = parser.parse_args()
     if args.record_prepared:
         print(json.dumps(record_prepared(args.record_prepared), indent=2))
     if args.sync_runs:
-        for run in sync_runs_from_mlflow():
+        for run in sync_runs_from_mlflow(experiment=args.experiment):
             print(f"{run['id']:22} {run['status']:10} {run['base_model']:35} data v{run['dataset_version']}  test loss {run.get('test_loss')}")
