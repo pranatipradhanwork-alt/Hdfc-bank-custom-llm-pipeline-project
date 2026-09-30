@@ -166,6 +166,8 @@ def main():
     parser.add_argument("--rag", action="store_true", help="Also score both models with retrieved FAQs (run rag.py --build first)")
     parser.add_argument("--index", default="models/rag_index",
                         help="RAG index folder used with --rag, e.g. an index built from the adapter's own Delta version")
+    parser.add_argument("--single-faq-above", type=float, metavar="SCORE",
+                        help="With --rag, give the model only the top FAQ when its similarity is at least SCORE (e.g. 0.80)")
     parser.add_argument("--reworded", action="store_true", help=f"Use the reworded questions in {REWORDED_QUESTIONS}")
     parser.add_argument("--dataset-version", type=int,
                         help="Delta version for questions/references (default: the RAG index version with --rag, else the training version)")
@@ -225,7 +227,10 @@ def main():
     conditions["finetuned"] = generate(model, tokenizer, plain, args.max_new_tokens, args.batch_size)
     if index:
         retrieved = index.search(questions)
-        with_faqs = [rag_messages(q, r) for q, r in zip(questions, retrieved)]
+        # Optionally drop the other FAQs when the best match is strong, so the model cannot answer from the wrong one
+        threshold = args.single_faq_above
+        given = [r[:1] if threshold is not None and r[0][1] >= threshold else r for r in retrieved]
+        with_faqs = [rag_messages(q, r) for q, r in zip(questions, given)]
         # Prompts are ~4x longer with three FAQs in them, so halve the batch to stay inside GPU memory
         rag_batch = max(1, args.batch_size // 2)
         print("[INFO] Base model + RAG...")
@@ -240,9 +245,10 @@ def main():
         if index:
             # A hit means a retrieved FAQ carries the reference answer (several FAQs share one question wording)
             hits = [index.is_match(faq, reference) for faq, _ in retrieved[i]]
-            context = " ".join(faq["Target_Banking_Response"] for faq, _ in retrieved[i])
+            context = " ".join(faq["Target_Banking_Response"] for faq, _ in given[i])
             row.update({
                 "retrieved_questions": " || ".join(faq["User_Query"] for faq, _ in retrieved[i]),
+                "faqs_given": len(given[i]),
                 "retrieval_hit_at_1": hits[0],
                 "retrieval_hit_at_k": any(hits),
             })
@@ -274,6 +280,9 @@ def main():
     }
     if index:
         summary["embed_model"] = index.meta["embed_model"]
+        if args.single_faq_above is not None:
+            summary["single_faq_above"] = args.single_faq_above
+            summary["single_faq_share"] = round(float((results["faqs_given"] == 1).mean()), 4)
         summary["retrieval_hit_at_1"] = round(results["retrieval_hit_at_1"].mean(), 4)
         summary["retrieval_hit_at_k"] = round(results["retrieval_hit_at_k"].mean(), 4)
     for prefix in conditions:
@@ -287,7 +296,8 @@ def main():
     summary["finetuned_wins_rougeL"] = round((results["finetuned_rougeL"] > results["base_rougeL"]).mean(), 4)
 
     REPORTS_DIR.mkdir(exist_ok=True)
-    name = f"eval_{adapter_dir.name}" + ("_rag" if index else "") + ("_reworded" if args.reworded else "")
+    name = f"eval_{adapter_dir.name}" + ("_rag" if index else "") + ("_top1" if index and args.single_faq_above is not None else "") \
+        + ("_reworded" if args.reworded else "")
     csv_path = REPORTS_DIR / f"{name}.csv"
     json_path = REPORTS_DIR / f"{name}.json"
     results.to_csv(csv_path, index=False)

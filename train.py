@@ -28,6 +28,9 @@ LORA_OUTPUT_DIR=Path(os.getenv("LORA_OUTPUT_DIR","models/hdfc_lora_adapter"))
 MAX_STEPS=int(os.getenv("MAX_STEPS","-1"))
 #Optional override of the config's epochs for one run, e.g. NUM_EPOCHS=3 to match the GPU runs on a Mac
 NUM_EPOCHS=os.getenv("NUM_EPOCHS")
+#RAG_TRAINING=1 trains on the same prompt the assistant is served with: the question plus retrieved FAQs
+#(the right one and two look-alike distractors, in random order), so the model learns to answer from them
+RAG_TRAINING=os.getenv("RAG_TRAINING","0")=="1"
 
 #One seed for data split, LoRA init and trainer shuffling, so runs are reproducible
 SEED=int(os.getenv("SEED","42"))
@@ -109,6 +112,36 @@ else:
         splits["train"].append(group.iloc[:n_train])
         splits["validation"].append(group.iloc[n_train:n_train+n_val])
         splits["test"].append(group.iloc[n_train+n_val:])
+
+if RAG_TRAINING:
+    import random
+    from rag import FaqIndex, normalise
+    rag_index=FaqIndex()
+    #Distractors for training rows never come from validation/test answers, so held-out text is not seen in training
+    held_out=set(pd.concat(splits["validation"]+splits["test"])["Target_Banking_Response"].map(normalise))
+    rng=random.Random(SEED)
+
+    def add_faq_context(frame,exclude):
+        frame=frame.copy()
+        faq_rows=frame["Task"]=="faq"
+        questions=frame.loc[faq_rows,"User_Query"].tolist()
+        answers=frame.loc[faq_rows,"Target_Banking_Response"].tolist()
+        contexts=[]
+        for question,answer,hits in zip(questions,answers,rag_index.search(questions,k=6)):
+            own=normalise(answer)
+            distractors=[{"User_Query":faq["User_Query"],"Target_Banking_Response":faq["Target_Banking_Response"]}
+                         for faq,_ in hits
+                         if normalise(faq["Target_Banking_Response"]) not in exclude|{own}][:2]
+            faqs=[{"User_Query":question,"Target_Banking_Response":answer}]+distractors
+            rng.shuffle(faqs)
+            contexts.append(json.dumps(faqs))
+        frame["FaqContext"]=None
+        frame.loc[faq_rows,"FaqContext"]=contexts
+        return frame
+
+    splits={name:[add_faq_context(pd.concat(parts),held_out if name=="train" else set())] for name,parts in splits.items()}
+    del rag_index
+    print("[STATUS] RAG training: each FAQ example gets its own FAQ plus 2 retrieved distractors, shuffled")
 
 #converting pandas dataframes to huggingface datasets (shuffled so tasks are mixed)
 
@@ -216,6 +249,11 @@ INTENT_INSTRUCTION="Classify the intent of this customer message. Reply with onl
 #Inference and promptfoo must build the prompt with the same system prompt and template.
 
 def formatting_prompts(example):
+    if RAG_TRAINING and example["Task"]=="faq":
+        from rag import rag_messages
+        faqs=[(faq,None) for faq in json.loads(example["FaqContext"])]
+        return {"prompt":rag_messages(example["User_Query"],faqs),
+                "completion":[{"role":"assistant","content":example["Target_Banking_Response"]}]}
     user_content=INTENT_INSTRUCTION.format(query=example["User_Query"]) if example["Task"]=="intent" else example["User_Query"]
     return {
         "prompt":[
@@ -254,7 +292,8 @@ training_arguments = SFTConfig(
     fp16=use_fp16,
     bf16=use_bf16,
     push_to_hub=False,
-    max_length=512,
+    #Three FAQs make RAG prompts up to ~620 tokens, plus answers up to ~390
+    max_length=1024 if RAG_TRAINING else 512,
     completion_only_loss=True,
     seed=SEED,
     report_to="mlflow"
@@ -262,6 +301,8 @@ training_arguments = SFTConfig(
 
 #Training engine: Combining the model, tokenizer, training arguments, and datasets into a single SFTTrainer instance
 train_mapped = train_data.map(formatting_prompts, remove_columns=train_data.column_names)
+if RAG_TRAINING:
+    print(f"[INFO] Example RAG training prompt:\n{train_mapped[0]['prompt'][1]['content'][:700]}\n[INFO] Target: {train_mapped[0]['completion'][0]['content'][:200]}")
 val_mapped = val_data.map(formatting_prompts, remove_columns=val_data.column_names)
 test_mapped = test_data.map(formatting_prompts, remove_columns=test_data.column_names)
 
@@ -290,6 +331,7 @@ mlflow.set_tags({
     "tasks":",".join(sorted(df["Task"].unique())),
     "seed":str(SEED),
     "max_steps":str(MAX_STEPS),
+    "rag_training":str(RAG_TRAINING),
     "output_dir":str(LORA_OUTPUT_DIR),
 })
 #Dataset lineage: records the exact Delta snapshot (with a content digest) used for training
@@ -318,6 +360,7 @@ try:
         "platform":operating_system,
         "seed":SEED,
         "max_steps":MAX_STEPS,
+        "rag_training":RAG_TRAINING,
         "dataset_version":dt.version(),
         "rows":{"train":len(train_data),"validation":len(val_data),"test":len(test_data)},
         "rows_per_task":df["Task"].value_counts().to_dict(),
