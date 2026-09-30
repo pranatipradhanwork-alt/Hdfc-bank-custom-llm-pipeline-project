@@ -24,7 +24,8 @@
     "started_at": "2026-09-23T09:40:07+00:00",
     "minutes": 1.1,
     "mlflow_run_id": "77bf7f3e8d92423db27d34fd3f6c8fa0",
-    "output_dir": "models/stage1_smoke"
+    "output_dir": "models/stage1_smoke",
+    "platform": "Windows"
   },
   {
     "id": "qwen_stage2_150",
@@ -51,7 +52,8 @@
     "started_at": "2026-09-23T15:20:32+00:00",
     "minutes": 4.5,
     "mlflow_run_id": "0f39c3da7cc144a394c2e8ee98686431",
-    "output_dir": "models/qwen_stage2_150"
+    "output_dir": "models/qwen_stage2_150",
+    "platform": "Windows"
   },
   {
     "id": "qwen_v1",
@@ -78,7 +80,8 @@
     "started_at": "2026-09-23T15:43:19+00:00",
     "minutes": 10.3,
     "mlflow_run_id": "b48abe13bdf246e89c7f1e09c64abb79",
-    "output_dir": "models/qwen_v1"
+    "output_dir": "models/qwen_v1",
+    "platform": "Windows"
   },
   {
     "id": "llama_stage1_smoke",
@@ -105,7 +108,8 @@
     "started_at": "2026-09-23T16:30:29+00:00",
     "minutes": 0.8,
     "mlflow_run_id": "e6d33b5cbb544a0a9347e96a469eebb6",
-    "output_dir": "models/llama_stage1_smoke"
+    "output_dir": "models/llama_stage1_smoke",
+    "platform": "Windows"
   },
   {
     "id": "llama_v1",
@@ -132,7 +136,8 @@
     "started_at": "2026-09-23T16:31:59+00:00",
     "minutes": 12.0,
     "mlflow_run_id": "152366ee084b4a4a8fb5704afd66d64f",
-    "output_dir": "models/llama_v1"
+    "output_dir": "models/llama_v1",
+    "platform": "Windows"
   },
   {
     "id": "llama_v2",
@@ -159,6 +164,36 @@
     "started_at": "2026-09-25T13:36:09+00:00",
     "minutes": 11.2,
     "mlflow_run_id": "d150a6f636ae472c832e3a33b9d5bf02",
-    "output_dir": "models/llama_v2"
+    "output_dir": "models/llama_v2",
+    "platform": "Windows"
+  },
+  {
+    "id": "qwen_mac",
+    "status": "completed",
+    "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "dataset_version": 2,
+    "config": "configs/training/mac-lora.yaml",
+    "lora": {
+      "r": 16,
+      "lora_alpha": 32,
+      "target_modules": [
+        "q_proj",
+        "v_proj"
+      ],
+      "lora_dropout": 0.05,
+      "bias": "none"
+    },
+    "seed": 42,
+    "max_steps": -1,
+    "git_commit": "2b45050",
+    "device": "MPS",
+    "platform": "macOS",
+    "epochs": 1.0,
+    "train_loss": 2.682,
+    "test_loss": 2.5063,
+    "started_at": "2026-09-30T03:26:05+00:00",
+    "minutes": 21.8,
+    "mlflow_run_id": "01054ffb2ece4470ab1392df8985203d",
+    "output_dir": "models/qwen_mac"
   }
 ]
