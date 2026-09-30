@@ -118,6 +118,8 @@ Partly (main point right, something important missing) or Wrong. Full sheet: `do
 |---|---|---|---|
 | `llama_v2` | Delta v7 | **live** | De-duplicated data, frozen grouped splits |
 | `llama_v1` | Delta v4 | approved (rollback target) | Trained before de-duplication |
+| `llama_v3_1ep` | Delta v7 | pending (preferred candidate) | Trained on the served RAG prompt, 1 epoch. With retrieval ROUGE-L 0.91 held-out, 0.91 reworded (`llama_v2` 0.82 / 0.51); promptfoo 36 / 36. Needs a human review |
+| `llama_v3` | Delta v7 | pending | Same, 3 epochs. ROUGE-L 0.92 held-out, 0.86 reworded; promptfoo 36 / 36 |
 
 Switch versions with `python registry.py --promote <version>` or `python registry.py --rollback`. Every change is
 recorded with a timestamp in `registry.json`, and the service verifies the checksum of whichever version it loads.

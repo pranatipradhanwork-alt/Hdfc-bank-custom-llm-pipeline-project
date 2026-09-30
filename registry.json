@@ -162,6 +162,72 @@
         "safety_report": "promptfoo/RESULTS.md"
       },
       "notes": "Same model, data and 1 epoch as qwen_mac_v2, but trained on the served prompt (RAG_TRAINING=1): each question with its own FAQ and 2 retrieved look-alike FAQs in random order. With retrieval it scores ROUGE-L 0.92 held-out and 0.74 reworded (qwen_mac_v2 0.62 / 0.35, llama_v2 0.82 / 0.51), 1.4% unsupported figures, promptfoo 35/35. It now copies the chosen FAQ nearly word for word, so ROUGE-L is partly inflated; remaining errors are picking a look-alike FAQ (e.g. car loan 85% vs 100%). Needs a human review before any release; the same training on Llama is the next release candidate. Not uploaded to the HF repo."
+    },
+    "llama_v3": {
+      "status": "pending",
+      "run_id": "llama_v3",
+      "base_model": "meta-llama/Llama-3.2-1B-Instruct",
+      "adapter_sha256": "ab3a208bbf76ae024712a5afff93764e3a41028d4677b8b8e935abc5b7d2502c",
+      "hf_repo_folder": "llama_v3",
+      "training": {
+        "dataset_version": 7,
+        "config": "configs/training/cuda-qlora.yaml",
+        "git_commit": "313720d",
+        "mlflow_run_id": "ca432efdf28b4a2ebfbdf008e91da465",
+        "rows": {
+          "train": 1124,
+          "validation": 141,
+          "test": 140
+        },
+        "platform": "Linux (WSL)",
+        "device": "NVIDIA GPU (QLoRA)",
+        "rag_training": true
+      },
+      "evaluation": {
+        "report": "reports/eval_llama_v3_rag.json",
+        "dataset_version": 7,
+        "retrieval_hit_at_3": 0.9357,
+        "safety_report": "promptfoo/RESULTS.md",
+        "rougeL_finetuned_with_rag": 0.9204,
+        "rougeL_finetuned_with_rag_reworded": 0.8556,
+        "answers_with_unsupported_figures": 0.0071,
+        "rougeL_finetuned_without_rag": 0.1921,
+        "safety_promptfoo": "36/36 passed"
+      },
+      "notes": "llama_v2's settings and data (Delta v7, 3 epochs) but trained on the served prompt (RAG_TRAINING=1). With retrieval: ROUGE-L 0.92 held-out and 0.86 reworded (llama_v2 0.82 / 0.51), 0.7% unsupported figures held-out, 0% reworded, promptfoo 36/36. Validation loss stopped improving after about 0.7 epochs (0.083), and the 1-epoch run llama_v3_1ep scores higher on reworded questions (0.91), so llama_v3_1ep is the preferred candidate. Uploaded to the HF repo."
+    },
+    "llama_v3_1ep": {
+      "status": "pending",
+      "run_id": "llama_v3_1ep",
+      "base_model": "meta-llama/Llama-3.2-1B-Instruct",
+      "adapter_sha256": "1f3b0ab60de0039d0319e9c6986338d631b7fc9a16133a397e8ec0a5ee1bf048",
+      "hf_repo_folder": "llama_v3_1ep",
+      "training": {
+        "dataset_version": 7,
+        "config": "configs/training/cuda-qlora.yaml",
+        "git_commit": "313720d",
+        "mlflow_run_id": "6db33e51b1d94c7ea3b42f150fb78762",
+        "rows": {
+          "train": 1124,
+          "validation": 141,
+          "test": 140
+        },
+        "platform": "Linux (WSL)",
+        "device": "NVIDIA GPU (QLoRA)",
+        "rag_training": true
+      },
+      "evaluation": {
+        "report": "reports/eval_llama_v3_1ep_rag.json",
+        "dataset_version": 7,
+        "retrieval_hit_at_3": 0.9357,
+        "safety_report": "promptfoo/RESULTS.md",
+        "rougeL_finetuned_with_rag": 0.9122,
+        "rougeL_finetuned_with_rag_reworded": 0.9129,
+        "answers_with_unsupported_figures": 0.0071,
+        "rougeL_finetuned_without_rag": 0.2043,
+        "safety_promptfoo": "36/36 passed"
+      },
+      "notes": "Same as llama_v3 but 1 epoch (NUM_EPOCHS=1, 8 minutes). With retrieval: ROUGE-L 0.91 held-out and 0.91 reworded (llama_v2 0.82 / 0.51), 0.7% unsupported figures held-out, 0% reworded, promptfoo 36/36. Preferred release candidate. An automated re-check of the 50 human-review questions (not a human review) found it fixes 12 of the 17 answers llama_v2 got wrong or partly right, including 4 of the 5 harmful ones (IFSC, business-loan collateral, policy loan, RD auto-debit date). Still wrong: the self-employed car-loan age (20 instead of 21, rows 3 and 9) and the Regalia ForexPlus documents (copies the ISIC card FAQ, right FAQ not retrieved). Needs a human review before approval. Uploaded to the HF repo."
     }
   },
   "history": [
@@ -196,6 +262,18 @@
       "from": null,
       "to": "qwen_mac_v3",
       "by": "admin"
+    },
+    {
+      "time": "2026-09-30T18:11:51+00:00",
+      "action": "register",
+      "from": null,
+      "to": "llama_v3"
+    },
+    {
+      "time": "2026-09-30T18:11:51+00:00",
+      "action": "register",
+      "from": null,
+      "to": "llama_v3_1ep"
     }
   ]
 }
