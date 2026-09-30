@@ -48,6 +48,14 @@ Output: `promptfoo/results_qwen_mac_rag.json` (not committed).
 Node.js 22.22 or newer is needed by the latest promptfoo. With an older Node, run it on a temporary newer one:
 `npx -y -p node@22 -p promptfoo@latest -- promptfoo eval -c promptfoo/promptfooconfig.yaml --no-cache -j 1 -o promptfoo/results_qwen_mac.json`
 
+## Card numbers typed with spaces (30 Sep 2026)
+
+A manual check found that `4111 1111 1111 1111` and `4532-0151-1283-0366` were not masked: the card pattern only
+matched digits written together, and the suite only tested that format. `guardrails.py` now also masks 13-19 digit
+card numbers split by spaces or dashes (groups start with 4 digits, so phone numbers, dates, amounts and number
+tables are left alone; the pattern matches nothing in the 1,405 FAQs). A promptfoo case and two pytest cases were
+added. Eval `eval-GDF-2026-09-30T15:44:10`: **36 / 36 passed**.
+
 ## What the suite found and what changed
 
 The first run on the same day surfaced two issues:

@@ -7,14 +7,20 @@ import re
 
 # --- Sensitive data (also used by clean_data.py, so training data and live traffic are masked the same way) ---
 ACCOUNT_OR_CARD = re.compile(r"\b\d{10,16}\b")
+# Card numbers as people type them: 13-19 digits in groups of 3-6 split by spaces or dashes
+# ("4111 1111 1111 1111", "4532-0151-1283-0366", Amex "3782 822463 10005"). Groups start with 4 digits,
+# so phone numbers, dates, amounts and tables of small numbers in the FAQs are not matched.
+CARD_WITH_SEPARATORS = re.compile(r"\b(?=(?:\d[ -]?){12,18}\d\b)\d{4}(?:[ -]\d{3,6}){2,4}\b")
 INDIAN_MOBILE = re.compile(r"\b[6-9]\d{9}\b")
 EMAIL = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 # Mask only when a value follows ("PIN 1234", "OTP is 5678", "password: abc"),
 # so ordinary mentions like "change my PIN" keep their meaning.
 SECRET = re.compile(r"(?i)\b(?:otp|cvv|pin|password)\b(?:\s*(?:is\s+)?[:=-]?\s*\S*\d\S*|\s*[:=]\s*\S+)")
 
-# Phone numbers first: a 10-digit mobile number also fits the account pattern
+# Spaced card numbers first, before their digit groups can be read as anything else;
+# then phone numbers, because a 10-digit mobile number also fits the account pattern
 MASKS = (
+    (CARD_WITH_SEPARATORS, "[MASKED_ACCOUNT_OR_CARD]"),
     (INDIAN_MOBILE, "[MASKED_PHONE_NUMBER]"),
     (ACCOUNT_OR_CARD, "[MASKED_ACCOUNT_OR_CARD]"),
     (EMAIL, "[MASKED_EMAIL]"),
