@@ -39,3 +39,4 @@ infrastructure/prometheus/metrics_token
 
 # promptfoo raw output (machine-generated; the summary is in promptfoo/RESULTS.md)
 promptfoo/results.json
+promptfoo/results_*.json
