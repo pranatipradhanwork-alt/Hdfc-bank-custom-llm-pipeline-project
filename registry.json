@@ -61,39 +61,6 @@
       },
       "notes": "Trained on de-duplicated Delta v7 with frozen grouped splits (0 test rows >= 0.95 similar to training)."
     },
-    "qwen_mac": {
-      "status": "pending",
-      "run_id": "qwen_mac",
-      "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
-      "adapter_sha256": "8d5734c1e87b711a758095dd4dc2bb0e2dd633d99a0015fbe78e7b66b6d78b15",
-      "hf_repo_folder": "qwen_mac",
-      "training": {
-        "dataset_version": 2,
-        "config": "configs/training/mac-lora.yaml",
-        "platform": "macOS",
-        "device": "Apple GPU (MPS)",
-        "git_commit": "2b45050",
-        "mlflow_run_id": "01054ffb2ece4470ab1392df8985203d",
-        "rows": {
-          "train": 1199,
-          "validation": 149,
-          "test": 151
-        }
-      },
-      "evaluation": {
-        "report": "reports/eval_qwen_mac_rag.json",
-        "dataset_version": 2,
-        "rougeL_finetuned_with_rag": 0.6089,
-        "rougeL_finetuned_with_rag_reworded": null,
-        "retrieval_hit_at_3": 0.94,
-        "answers_with_unsupported_figures": 0.0,
-        "rougeL_finetuned_without_rag": 0.1862,
-        "safety_promptfoo": "35/35 passed",
-        "safety_report": "promptfoo/RESULTS.md",
-        "questions": 50
-      },
-      "notes": "Trained on a Mac (Apple M2 GPU) to show the pipeline runs on macOS as well as the Windows GPU machine. Passed the promptfoo safety suite 35/35 on a local Mac gateway. With retrieval it scores ROUGE-L 0.61 on 50 held-out questions with 0 unsupported figures. Not for release yet: trained and scored on older Delta v2 (before de-duplication, so the score is likely inflated and not comparable with llama_v2 on v7), no reworded-question score, and the adapter is not uploaded to the HF repo."
-    },
     "qwen_mac_v2": {
       "status": "pending",
       "run_id": "qwen_mac_v2",
@@ -120,23 +87,59 @@
         "rougeL_finetuned_with_rag_reworded": 0.353,
         "retrieval_hit_at_3": 0.9357,
         "answers_with_unsupported_figures": 0.0214,
-        "rougeL_finetuned_without_rag": 0.1748
+        "rougeL_finetuned_without_rag": 0.1748,
+        "safety_promptfoo": "35/35 passed",
+        "safety_report": "promptfoo/RESULTS.md",
+        "dataset_same_as": 7
       },
-      "notes": "Qwen2.5 0.5B retrained on a Mac (Apple M2 GPU) on the de-duplicated data with frozen splits. Local Delta v3 has the same 1,405 FAQs and 1,124/141/140 split as the team's v7, and it is scored with the live v7 index, so it is directly comparable with llama_v2: ROUGE-L 0.62 vs 0.82 held-out and 0.35 vs 0.51 reworded, 2% vs 0% unsupported figures. llama_v2 stays live. Not uploaded to the HF repo; promptfoo not run on this version."
+      "notes": "Qwen2.5 0.5B retrained on a Mac (Apple M2 GPU) on the de-duplicated data with frozen splits. Local Delta v3 has the same 1,405 FAQs and 1,124/141/140 split as the team's v7, and it is scored with the live v7 index, so it is directly comparable with llama_v2: ROUGE-L 0.62 vs 0.82 held-out and 0.35 vs 0.51 reworded, 2% vs 0% unsupported figures. llama_v2 stays live. Passed promptfoo 35/35 (slowest answer 6.7 s). Not uploaded to the HF repo."
+    },
+    "qwen_mac_v3": {
+      "status": "pending",
+      "run_id": "qwen_mac_v3",
+      "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+      "adapter_sha256": "d2cc612e3c9c1037855176cfe5858517742510e15c6d560e3892feda27107707",
+      "hf_repo_folder": "qwen_mac_v3",
+      "training": {
+        "dataset_version": 3,
+        "config": "configs/training/mac-lora.yaml",
+        "platform": "macOS",
+        "device": "Apple GPU (MPS)",
+        "git_commit": "f7a8556",
+        "mlflow_run_id": "8fd275709d2f4889bd64a071638bc48d",
+        "rows": {
+          "train": 1124,
+          "validation": 141,
+          "test": 140
+        }
+      },
+      "evaluation": {
+        "report": "reports/eval_qwen_mac_v3_rag.json",
+        "dataset_version": 3,
+        "rougeL_finetuned_with_rag": 0.5417,
+        "rougeL_finetuned_with_rag_reworded": 0.2725,
+        "retrieval_hit_at_3": 0.9357,
+        "answers_with_unsupported_figures": 0.0286,
+        "rougeL_finetuned_without_rag": 0.1803,
+        "safety_promptfoo": "35/35 passed",
+        "safety_report": "promptfoo/RESULTS.md",
+        "dataset_same_as": 7
+      },
+      "notes": "Same as qwen_mac_v2 but 3 epochs (NUM_EPOCHS=3), to match the GPU runs. Test loss improved (2.45 vs 2.52) but answers with retrieval got worse: ROUGE-L 0.54 vs 0.62 held-out and 0.27 vs 0.35 reworded, 2.9% unsupported figures. The extra epochs made it lean on memorised answers instead of the retrieved FAQs, so 1 epoch is the better setting for Qwen with RAG. Passed promptfoo 35/35. Not uploaded to the HF repo."
     }
   },
   "history": [
-    {
-      "time": "2026-09-30T04:39:40+00:00",
-      "action": "register",
-      "from": null,
-      "to": "qwen_mac"
-    },
     {
       "time": "2026-09-30T05:30:17+00:00",
       "action": "register",
       "from": null,
       "to": "qwen_mac_v2"
+    },
+    {
+      "time": "2026-09-30T06:40:24+00:00",
+      "action": "register",
+      "from": null,
+      "to": "qwen_mac_v3"
     }
   ]
 }
