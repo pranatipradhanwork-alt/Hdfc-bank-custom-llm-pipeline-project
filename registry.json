@@ -57,7 +57,9 @@
         "rougeL_finetuned_with_rag_reworded": 0.5108,
         "retrieval_hit_at_3": 0.9357,
         "answers_with_unsupported_figures": 0.0,
-        "safety_promptfoo": "35/35 passed"
+        "safety_promptfoo": "35/35 passed",
+        "human_review": "33/50 correct, 8 partly, 9 wrong, 5 harmful",
+        "human_review_report": "docs/human_review_llama_v2.csv"
       },
       "notes": "Trained on de-duplicated Delta v7 with frozen grouped splits (0 test rows >= 0.95 similar to training)."
     },
