@@ -49,7 +49,7 @@
    Login gives a token; the server checks the user's role on every request.
    ============================================================ */
 const { useState, useEffect } = React;
-const { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } = Recharts;
+const { ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend, XAxis, YAxis, CartesianGrid, Tooltip } = Recharts;
 
 /* ------------------------------ API helper ------------------------------ */
 const TOKEN_KEY = "hdfc_token";
@@ -1048,27 +1048,32 @@ function EvaluationsPage() {
   const models = useApi("/v1/models");
   if (!models.data) return <Loading error={models.error} />;
   const rows = Object.entries(models.data.versions).map(([name, m]) => ({ name, platform: (m.training || {}).platform, ...m.evaluation }));
-  const chart = rows.filter((r) => r.rougeL_finetuned_with_rag != null).map((r) => ({ name: r.name, test: r.rougeL_finetuned_with_rag, reworded: r.rougeL_finetuned_with_rag_reworded }));
+  const chart = rows.filter((r) => r.rougeL_finetuned_with_rag != null).map((r) => ({ name: r.name, version: r.dataset_version, test: r.rougeL_finetuned_with_rag, reworded: r.rougeL_finetuned_with_rag_reworded }));
 
   return (
     <div className="fade-in">
       <PageHeader title="Model Evaluation" description="Quality before release. Base vs fine-tuned and with vs without retrieval are compared in evaluate.py; the release comparison is shown here. Models were trained and tested on both a Windows NVIDIA GPU machine and a Mac." />
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="p-6">
-          <SectionTitle>ROUGE-L by version (fine-tuned + retrieval)</SectionTitle>
+          <SectionTitle>ROUGE-L by model (fine-tuned + retrieval)</SectionTitle>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chart} margin={{ top: 8, right: 12, left: -18, bottom: 0 }}>
+              <BarChart data={chart} margin={{ top: 8, right: 12, left: -6, bottom: 0 }} barGap={4} barCategoryGap="28%">
                 <CartesianGrid vertical={false} stroke="#EEEEF1" />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} dy={6} />
-                <YAxis domain={[0, 1]} tickLine={false} axisLine={false} width={36} />
-                <Tooltip contentStyle={{ fontSize: 12 }} />
-                <Line type="monotone" dataKey="test" name="Held-out test" stroke="#AD1730" strokeWidth={2.5} dot={{ r: 4 }} />
-                <Line type="monotone" dataKey="reworded" name="Reworded questions" stroke="#0F9B8E" strokeWidth={2.5} dot={{ r: 4 }} />
-              </LineChart>
+                <XAxis dataKey="name" tickLine={false} axisLine={false} interval={0} height={36} tick={({ x, y, payload, index }) => (
+                  <text x={x} y={y + 12} textAnchor="middle" fontSize={10} fill="#8C8C99">
+                    <tspan x={x}>{payload.value}</tspan>
+                    <tspan x={x} dy="1.2em">data v{chart[index] && chart[index].version}</tspan>
+                  </text>)} />
+                <YAxis domain={[0, 1]} ticks={[0, 0.25, 0.5, 0.75, 1]} tickLine={false} axisLine={false} width={36} />
+                <Tooltip contentStyle={{ fontSize: 12 }} cursor={{ fill: "#F5F5F7" }} formatter={(v) => (v == null ? "not measured" : v)} />
+                <Legend iconType="square" iconSize={10} wrapperStyle={{ fontSize: 12 }} />
+                <Bar dataKey="test" name="Held-out test" fill="#AD1730" radius={[3, 3, 0, 0]} maxBarSize={36} />
+                <Bar dataKey="reworded" name="Reworded questions" fill="#0F9B8E" radius={[3, 3, 0, 0]} maxBarSize={36} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
-          <p className="mt-3 text-xs text-ink-400">Quote the reworded score: the held-out score is inflated because the model saw near-copies of those answers during training.</p>
+          <p className="mt-3 text-xs text-ink-400">Each model is scored on its own data version (vN), so bars are only directly comparable at the same version. Quote the reworded score: the held-out score is inflated because the model saw near-copies of those answers during training. A missing bar means not measured yet.</p>
         </Card>
         <Card className="p-6">
           <SectionTitle>What is measured</SectionTitle>
