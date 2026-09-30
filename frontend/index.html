@@ -832,7 +832,7 @@ function TrainingJobsPage({ user, setToast }) {
           { label: "Data", render: (r) => `Delta v${r.dataset_version}` },
           { label: "Status", render: (r) => <Badge status={r.status} /> },
           { label: "Steps", render: (r) => r.max_steps === -1 ? `full (${r.epochs ?? 3} epoch${(r.epochs ?? 3) === 1 ? "" : "s"})` : r.max_steps ?? "-" },
-          { label: "Test loss", render: (r) => r.test_loss ?? "-" },
+          { label: "Test loss", render: (r) => r.test_loss == null ? "-" : r.rag_training ? `${r.test_loss} (with FAQs in prompt)` : r.test_loss },
           { label: "Duration", render: (r) => r.minutes != null ? `${r.minutes} min` : "-" },
           { label: "Started", render: (r) => formatTime(r.started_at || r.requested_at) },
         ]} />
