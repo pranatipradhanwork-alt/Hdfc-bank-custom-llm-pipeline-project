@@ -195,5 +195,34 @@
     "minutes": 21.8,
     "mlflow_run_id": "01054ffb2ece4470ab1392df8985203d",
     "output_dir": "models/qwen_mac"
+  },
+  {
+    "id": "qwen_mac_v2",
+    "status": "completed",
+    "base_model": "Qwen/Qwen2.5-0.5B-Instruct",
+    "dataset_version": 3,
+    "config": "configs/training/mac-lora.yaml",
+    "lora": {
+      "r": 16,
+      "lora_alpha": 32,
+      "target_modules": [
+        "q_proj",
+        "v_proj"
+      ],
+      "lora_dropout": 0.05,
+      "bias": "none"
+    },
+    "seed": 42,
+    "max_steps": -1,
+    "git_commit": "fe38f98-dirty",
+    "device": "MPS",
+    "platform": "macOS",
+    "epochs": 1.0,
+    "train_loss": 2.6287,
+    "test_loss": 2.5175,
+    "started_at": "2026-09-30T05:02:59+00:00",
+    "minutes": 12.4,
+    "mlflow_run_id": "361a91933ba94a3c9f2a65e3a41994dd",
+    "output_dir": "models/qwen_mac_v2"
   }
 ]
