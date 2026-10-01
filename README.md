@@ -40,6 +40,20 @@ questions, and 50 served answers graded by people.
 - **Live monitoring** (MacBook Air, no GPU; 36 red-team + 50 customer requests): 100% success (86 / 86),
   p50 1.7 s, p95 6.9 s, all 50 customer questions answered.
 
+### Model versions
+
+| Version | Training | Status | Result (ROUGE-L with retrieval: FAQ / customer wording) |
+|---|---|---|---|
+| `llama_v1` | Llama 3.2 1B, plain fine-tuning, 3 epochs, data before de-duplication | approved | 0.60 / 0.46 |
+| `llama_v2` | Llama 3.2 1B, plain fine-tuning, 3 epochs, de-duplicated data (v7) | approved (rollback target) | 0.82 / 0.51; human review 31/50 correct, 5 harmful |
+| `llama_v3` | Llama 3.2 1B, **RAG-aware training**, 3 epochs | rejected: lower on customer wording than 1 epoch | 0.92 / 0.86 |
+| **`llama_v3_1ep`** | Llama 3.2 1B, **RAG-aware training**, 1 epoch (8 min on an RTX 4050) | **live** since 1 Oct 2026 | **0.91 / 0.91**; human review **41/50 correct, 3 harmful**; promptfoo 36/36 |
+| `qwen_mac_rag` | Qwen 2.5 0.5B, RAG-aware training, 1 epoch, trained on a Mac | pending (lightweight backup; adapter only on the Mac) | 0.92 / 0.74 |
+| `qwen_mac_v2`, `qwen_mac_v3` | Qwen 2.5 0.5B, plain fine-tuning, 1 and 3 epochs, Mac | rejected | 0.62 / 0.35 and 0.54 / 0.27 |
+
+The registry (`registry.json`) holds each version's checksum, data version, MLflow run, evaluation, human review and
+approval history; the dashboard's Models and Evaluations pages show the same.
+
 Full evaluation, the human review method and known limitations are in [`MODEL_CARD.md`](MODEL_CARD.md); graded
 sheets are in [`docs/`](docs/).
 
