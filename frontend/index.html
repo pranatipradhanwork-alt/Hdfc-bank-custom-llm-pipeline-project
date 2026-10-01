@@ -17,6 +17,8 @@
   .fade-in{ animation: fadeIn .25s ease-out; }
   @keyframes fadeIn{ from{ opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
   button { cursor:pointer; }
+  /* Long model names, ids and checksums wrap inside their card instead of spilling out of it */
+  h1, h2, p, dd { overflow-wrap:anywhere; }
   input:focus, button:focus-visible, select:focus, textarea:focus { outline: 2px solid #C81E3A; outline-offset: 1px; }
 </style>
 </head>
@@ -80,13 +82,19 @@ function useApi(path) {
   const [data, setData] = useState(null);
   const [error, setError] = useState(null);
   const [version, setVersion] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState(null);
   useEffect(() => {
     let active = true;
     setError(null);
-    api(path).then((d) => active && setData(d)).catch((e) => active && setError(e.message));
+    setLoading(true);
+    api(path)
+      .then((d) => { if (active) { setData(d); setUpdatedAt(new Date()); } })
+      .catch((e) => active && setError(e.message))
+      .finally(() => active && setLoading(false));
     return () => { active = false; };
   }, [path, version]);
-  return { data, error, reload: () => setVersion((v) => v + 1) };
+  return { data, error, loading, updatedAt, reload: () => setVersion((v) => v + 1) };
 }
 
 function formatTime(iso) {
@@ -110,9 +118,11 @@ const ICON_PATHS = {
   users: ["M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2","M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z","M23 21v-2a4 4 0 0 0-3-3.87","M16 3.13a4 4 0 0 1 0 7.75"],
   chevronRight: ["m9 18 6-6-6-6"],
   x: ["M18 6 6 18","m6 6 12 12"],
+  menu: ["M4 6h16","M4 12h16","M4 18h16"],
   check: ["M20 6 9 17l-5-5"],
   plus: ["M12 5v14","M5 12h14"],
   arrowRight: ["M5 12h14","m12 5 7 7-7 7"],
+  arrowLeft: ["M19 12H5","m12 19-7-7 7-7"],
   refresh: ["M21 12a9 9 0 1 1-3-6.7L21 8","M21 3v5h-5"],
   logout: ["M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4","M16 17l5-5-5-5","M21 12H9"],
   send: ["M22 2 11 13","M22 2l-7 20-4-9-9-4 20-7Z"],
@@ -188,7 +198,7 @@ function PageHeader({ title, description, action }) {
   return (
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 className="font-display text-2xl font-bold text-ink-900">{title}</h1>
+        <h1 className="font-display text-xl font-bold text-ink-900 sm:text-2xl">{title}</h1>
         {description && <p className="mt-1 text-sm text-ink-500">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -239,7 +249,7 @@ function Toast({ toast }) {
   if (!toast) return null;
   const isError = toast.type === "error";
   return (
-    <div className="fade-in fixed bottom-6 right-6 z-50 flex max-w-md items-center gap-3 rounded-xl border border-ink-100 bg-white px-4 py-3 shadow-hover">
+    <div className="fade-in fixed bottom-4 left-4 right-4 z-50 flex max-w-md sm:bottom-6 sm:left-auto sm:right-6 items-center gap-3 rounded-xl border border-ink-100 bg-white px-4 py-3 shadow-hover">
       <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${isError ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"}`}>
         <Icon name={isError ? "x" : "check"} size={14} />
       </span>
@@ -339,10 +349,19 @@ function Stat({ icon, label, value, sub }) {
   return (
     <Card className="p-5">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand-50 text-brand-600"><Icon name={icon} size={19} /></div>
-      <p className="mt-4 font-display text-2xl font-bold tabular-nums text-ink-900">{value}</p>
+      <p className="mt-4 font-display text-xl font-bold tabular-nums text-ink-900 sm:text-2xl">{value}</p>
       <p className="text-sm text-ink-500">{label}</p>
       {sub && <p className="mt-2 text-xs font-medium text-ink-400">{sub}</p>}
     </Card>
+  );
+}
+
+function RefreshButton({ source }) {
+  return (
+    <div className="flex items-center gap-3">
+      {source.updatedAt && <span className="text-xs text-ink-400">Updated {source.updatedAt.toLocaleTimeString("en-IN")}</span>}
+      <Button icon="refresh" disabled={source.loading} onClick={source.reload}>{source.loading ? "Refreshing…" : "Refresh"}</Button>
+    </div>
   );
 }
 
@@ -434,7 +453,7 @@ function DashboardPage({ navigate }) {
   return (
     <div className="fade-in">
       <PageHeader title="AI Platform Overview" description="The governed lifecycle from approved banking data to a served, fine-tuned model." />
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 md:grid-cols-3 2xl:grid-cols-6">
         <Stat icon="rocket" label="Live model" value={models.data.live} sub={`Rollback to ${models.data.previous}`} />
         <Stat icon="chat" label="Assistants" value={liveAssistants} sub={`approved, ${pendingAssistants} pending`} />
         <Stat icon="flask" label="Training runs" value={runs.data.length} sub={`${completedRuns} completed, ${queuedRuns} queued`} />
@@ -445,29 +464,26 @@ function DashboardPage({ navigate }) {
 
       <Card className="mt-6 p-6">
         <SectionTitle>AI Development Lifecycle</SectionTitle>
-        <div className="flex flex-col gap-3 md:flex-row md:items-stretch">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           {lifecycle.map((stage, i) => (
-            <React.Fragment key={stage.title}>
-              <button onClick={() => navigate(stage.page)}
-                className="group flex min-w-[140px] flex-1 flex-col gap-3 rounded-xl border border-ink-100 bg-white p-4 text-left shadow-card transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-hover">
-                <div className="flex items-center justify-between">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink-50 text-ink-500 group-hover:bg-brand-50 group-hover:text-brand-600"><Icon name={stage.icon} size={17} /></span>
-                  <span className="font-display text-xs font-bold text-ink-300">{String(i + 1).padStart(2, "0")}</span>
-                </div>
-                <div>
-                  <p className="font-display text-sm font-bold text-ink-900">{stage.title}</p>
-                  <p className="mt-0.5 text-xs text-ink-500">{stage.desc}</p>
-                </div>
-                <Badge status={stage.ok ? "success" : "pending"}>{stage.status}</Badge>
-              </button>
-              {i < lifecycle.length - 1 && <div className="hidden items-center text-ink-300 md:flex"><Icon name="arrowRight" size={16} /></div>}
-            </React.Fragment>
+            <button key={stage.title} onClick={() => navigate(stage.page)}
+              className="group flex flex-col gap-3 rounded-xl border border-ink-100 bg-white p-4 text-left shadow-card transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-hover">
+              <div className="flex items-center justify-between">
+                <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-ink-50 text-ink-500 group-hover:bg-brand-50 group-hover:text-brand-600"><Icon name={stage.icon} size={17} /></span>
+                <span className="font-display text-xs font-bold text-ink-300">{String(i + 1).padStart(2, "0")}</span>
+              </div>
+              <div>
+                <p className="font-display text-sm font-bold text-ink-900">{stage.title}</p>
+                <p className="mt-0.5 text-xs text-ink-500">{stage.desc}</p>
+              </div>
+              <Badge status={stage.ok ? "success" : "pending"}>{stage.status}</Badge>
+            </button>
           ))}
         </div>
       </Card>
 
       <Card className="mt-6">
-        <div className="flex items-center justify-between border-b border-ink-100 px-6 py-4">
+        <div className="flex items-center justify-between gap-3 border-b border-ink-100 px-4 py-4 sm:px-6">
           <h2 className="font-display text-base font-bold text-ink-900">Recent Platform Activity</h2>
           <Button variant="ghost" size="sm" onClick={() => navigate("audit")}>View all <Icon name="arrowRight" size={14} /></Button>
         </div>
@@ -1218,7 +1234,7 @@ function MonitoringPage() {
   return (
     <div className="fade-in">
       <PageHeader title="Monitoring" description="Gateway traffic, escalations, guardrail events and reviewer feedback. Customer questions are not stored, only identifiers and outcomes."
-        action={<Button icon="refresh" onClick={monitoring.reload}>Refresh</Button>} />
+        action={<RefreshButton source={monitoring} />} />
       <Card className="mb-6 p-6">
         <SectionTitle>Service level objectives (last {m.slo_window_hours} hours)</SectionTitle>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -1237,7 +1253,7 @@ function MonitoringPage() {
         </div>
         <p className="mt-3 text-xs text-ink-400">The same numbers are exported for Prometheus at <span className="font-mono">/metrics</span>.</p>
       </Card>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 min-[420px]:grid-cols-2 xl:grid-cols-4">
         <Stat icon="activity" label="Requests" value={m.requests} sub={`${m.answered} answered, ${m.escalated} escalated, ${m.failed} failed`} />
         <Stat icon="refresh" label="Answer time p50 / p95" value={m.p50_latency_ms ? `${(m.p50_latency_ms / 1000).toFixed(1)} / ${(m.p95_latency_ms / 1000).toFixed(1)} s` : "-"} sub={m.avg_latency_ms ? `average ${(m.avg_latency_ms / 1000).toFixed(1)} s` : ""} />
         <Stat icon="shield" label="Guardrail events" value={Object.values(m.policy_flags).reduce((a, b) => a + b, 0)} sub={Object.keys(m.policy_flags).length ? Object.keys(m.policy_flags).join(", ").replace(/_/g, " ") : "none"} />
@@ -1308,7 +1324,7 @@ function AuditLogsPage() {
   return (
     <div className="fade-in">
       <PageHeader title="Audit Logs" description="Every login and governance action: who did what, to which resource, and the result."
-        action={<Button icon="refresh" onClick={audit.reload}>Refresh</Button>} />
+        action={<RefreshButton source={audit} />} />
       <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <select className="rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm" value={userFilter} onChange={(e) => setUserFilter(e.target.value)}>
           <option value="">All users</option>{users.map((u) => <option key={u}>{u}</option>)}
@@ -1411,19 +1427,35 @@ const NAV_ITEMS = [
 ];
 const PAGE_PARENT = { datasetDetail: "datasets", modelDetail: "models" };
 
+function pageUrl({ page, id }) {
+  return "#" + page + (id ? "/" + encodeURIComponent(id) : "");
+}
+
+// The page in the address bar, if this user may open it
+function pageFromUrl(user) {
+  const [page, id] = window.location.hash.slice(1).split("/");
+  const item = NAV_ITEMS.find((n) => n.key === (PAGE_PARENT[page] || page));
+  if (!item || !user.permissions.includes(item.needs)) return null;
+  return { page, id: id ? decodeURIComponent(id) : null };
+}
+
 function initials(name) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
 }
 
-function Sidebar({ page, navigate, user }) {
+function Sidebar({ page, navigate, user, open, onClose }) {
+  // Always shown on wide screens; on narrow screens it slides in over the page from the menu button
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 flex w-64 flex-col border-r border-ink-100 bg-white">
+    <>
+    {open && <div className="fixed inset-0 z-30 bg-ink-900/40 lg:hidden" onClick={onClose} />}
+    <aside className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-ink-100 bg-white transition-transform duration-200 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
       <div className="flex items-center gap-2.5 border-b border-ink-100 px-5 py-5">
         <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 font-display text-sm font-extrabold text-white">H</div>
         <div className="leading-tight">
           <p className="font-display text-[14px] font-bold text-ink-900">HDFC AI Platform</p>
           <p className="text-[11px] font-medium text-ink-400">Enterprise AI Management</p>
         </div>
+        <button onClick={onClose} className="ml-auto text-ink-400 hover:text-ink-700 lg:hidden" aria-label="Close menu"><Icon name="x" /></button>
       </div>
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
         {NAV_ITEMS.filter((item) => user.permissions.includes(item.needs)).map((item) => {
@@ -1448,14 +1480,17 @@ function Sidebar({ page, navigate, user }) {
         </div>
       </div>
     </aside>
+    </>
   );
 }
 
 function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
-  const [route, setRoute] = useState({ page: null, id: null });
+  // depth counts the pages opened since sign-in, so the Back button only shows when there is a page to go back to
+  const [route, setRoute] = useState({ page: null, id: null, depth: 0 });
   const [toast, setToast] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   // On load, reuse a saved login if it is still valid
   useEffect(() => {
@@ -1469,6 +1504,26 @@ function App() {
     return () => window.removeEventListener("session-expired", expired);
   }, []);
 
+  // Each page is a browser history entry, so the browser's Back and Forward buttons move between pages
+  useEffect(() => {
+    const onPopState = (e) => {
+      if (e.state && e.state.page) {
+        setRoute(e.state);
+        setMenuOpen(false);
+        window.scrollTo({ top: 0 });
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e) => { if (e.key === "Escape") setMenuOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 3500);
@@ -1477,17 +1532,24 @@ function App() {
 
   function startSession(u) {
     setUser(u);
-    setRoute({ page: u.permissions.includes("view_platform") ? "dashboard" : "assistant", id: null });
+    const home = { page: u.permissions.includes("view_platform") ? "dashboard" : "assistant", id: null };
+    const start = { ...(pageFromUrl(u) || home), depth: 0 };
+    window.history.replaceState(start, "", pageUrl(start));
+    setRoute(start);
   }
 
   async function logout() {
     try { await api("/v1/auth/logout", "POST"); } catch {}
+    window.history.replaceState(null, "", window.location.pathname);
     setToken(null);
     setUser(null);
   }
 
   function navigate(page, id) {
-    setRoute({ page, id: id || null });
+    const next = { page, id: id || null, depth: route.depth + 1 };
+    window.history.pushState(next, "", pageUrl(next));
+    setRoute(next);
+    setMenuOpen(false);
     window.scrollTo({ top: 0 });
   }
 
@@ -1506,14 +1568,16 @@ function App() {
 
   return (
     <div className="min-h-screen bg-ink-50">
-      <Sidebar page={activeKey} navigate={navigate} user={user} />
-      <div className="pl-64">
-        <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-ink-100 bg-white/90 px-6 backdrop-blur">
-          <p className="font-display text-sm font-semibold text-ink-700">{label}</p>
-          <span className="ml-auto"><Badge status="live">{ROLE_LABELS[user.role]}</Badge></span>
-          <Button variant="ghost" size="sm" icon="logout" onClick={logout}>Sign out</Button>
+      <Sidebar page={activeKey} navigate={navigate} user={user} open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <div className="lg:pl-64">
+        <header className="sticky top-0 z-20 flex h-16 items-center gap-2 border-b border-ink-100 bg-white/90 px-4 backdrop-blur sm:gap-4 sm:px-6">
+          <button onClick={() => setMenuOpen(true)} className="-ml-1 rounded-lg p-1.5 text-ink-500 hover:bg-ink-100 lg:hidden" aria-label="Open menu"><Icon name="menu" size={20} /></button>
+          {route.depth > 0 && <Button variant="ghost" size="sm" icon="arrowLeft" onClick={() => window.history.back()}>Back</Button>}
+          <p className="min-w-0 truncate font-display text-sm font-semibold text-ink-700">{label}</p>
+          <span className="ml-auto hidden sm:block"><Badge status="live">{ROLE_LABELS[user.role]}</Badge></span>
+          <Button variant="ghost" size="sm" icon="logout" onClick={logout} className="ml-auto sm:ml-0"><span className="hidden sm:inline">Sign out</span></Button>
         </header>
-        <main className="mx-auto max-w-7xl px-6 py-8">
+        <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
           {route.page === "settings" ? <SettingsPage user={user} onLogout={logout} /> : Page ? <Page key={route.page + (route.id || "")} {...props} /> : null}
         </main>
       </div>
