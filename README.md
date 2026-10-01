@@ -9,7 +9,7 @@ a role-based web platform and monitoring.
 |---|---|
 | **Live model** | `llama_v3_1ep`: Llama 3.2 1B Instruct + LoRA adapter, trained on the served RAG prompt (since 1 Oct 2026) |
 | **Rollback target** | `llama_v2` |
-| **Deployed app** | _link to be added_ |
+| **Deployed app** | https://shyam003-hdfc-ai-platform.hf.space (Hugging Face Space, CPU; sign in with the demo accounts provided with the submission) |
 | **Demo video** | _link to be added_ |
 | **Model card** | [`MODEL_CARD.md`](MODEL_CARD.md) |
 | **API contract** | [`docs/api-contract.md`](docs/api-contract.md) |
@@ -145,6 +145,19 @@ from the registered one. With Docker, `docker compose up --build` starts the pla
 | Admin | Everything, including approving models, datasets and assistants, promote, rollback, users |
 | AI Engineer | Register and prepare datasets, request runs, register models; cannot approve |
 | Employee | Use the assistants assigned to them |
+
+### Deployment
+
+The review app runs as a Docker Space on Hugging Face: https://shyam003-hdfc-ai-platform.hf.space. The Space is
+built from this repository's `Dockerfile` (CPU-only PyTorch, port 7860) with `deploy/space-README.md` as its README.
+At start-up it downloads the base model and the live adapter from the private repo `hdfc-capstone/hdfc-faq-assistant`
+using the Space secret `HF_TOKEN` (a read token), and verifies the adapter checksum against `registry.json`. To
+redeploy, upload the files of `main` to the Space (`git archive main`, with `deploy/space-README.md` copied over
+`README.md`); the Space rebuilds automatically. The workflow `.github/workflows/keep-space-awake.yml` calls
+`/v1/health` once a day so the Space is not paused between review visits.
+
+The Space runs on CPU, so answers are slower than on a GPU. Team
+assistants created at runtime keep their knowledge index on the Space's disk, so they last until the next restart.
 
 ## API
 
