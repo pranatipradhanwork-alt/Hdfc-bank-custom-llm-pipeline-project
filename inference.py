@@ -20,7 +20,7 @@ from schemas import Citation, InferenceResponse, ModelInfo
 
 MODELS_DIR = Path("models")
 # Private Hugging Face repo holding the released adapters (llama_v1, llama_v2) and the FAQ index (rag_index)
-HF_REPO = os.getenv("HF_REPO", "shyam003/hdfc-faq-assistant")
+HF_REPO = os.getenv("HF_REPO", "hdfc-capstone/hdfc-faq-assistant")
 # Optional override; by default the live version from registry.json is served
 MODEL_VERSION = os.getenv("MODEL_VERSION")
 

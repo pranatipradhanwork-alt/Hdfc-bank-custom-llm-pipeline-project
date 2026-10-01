@@ -9,7 +9,7 @@ USER user
 ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
     PYTHONUNBUFFERED=1 \
-    HF_REPO=shyam003/hdfc-faq-assistant
+    HF_REPO=hdfc-capstone/hdfc-faq-assistant
 WORKDIR /home/user/app
 
 # Dependencies first, so code changes don't reinstall them
