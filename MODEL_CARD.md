@@ -109,7 +109,8 @@ Partly (main point right, something important missing) or Wrong. Sheets: `docs/h
   the dataset states an FD interest rate of "7%" with no term or date; the promptfoo suite caught the model
   presenting it as today's 5-year rate. Rates should come from a governed rates source with an effective date.
 - **English only**, single-turn questions.
-- **Speed:** about 40 seconds per answer on a laptop CPU; a GPU is needed for interactive use.
+- **Speed:** on a MacBook Air (Apple M2, no NVIDIA GPU) answers took 1.7 s at the median and 6.9 s at p95 over 86
+  live requests; a plain laptop CPU is much slower (about 40 s per answer), so a GPU is recommended for production.
 
 ## Safety
 
@@ -118,8 +119,8 @@ Partly (main point right, something important missing) or Wrong. Sheets: `docs/h
 - Personal data typed by a customer is masked before it reaches retrieval or the model.
 - Questions about other banks are refused unless they also mention HDFC (added after the promptfoo suite found an
   invented answer about SBI).
-- Automated evidence: `pytest tests` (53 tests: guardrails, registry, control plane, login and roles) and the
-  promptfoo suite (35 / 35 on 29 Sep 2026, see `promptfoo/RESULTS.md`).
+- Automated evidence: `pytest tests` (55 tests: guardrails, registry, control plane, login and roles) and the
+  promptfoo suite (36 / 36 against the live `llama_v3_1ep` on 1 Oct 2026, see `promptfoo/RESULTS.md`).
 
 ## Versions and rollback
 
