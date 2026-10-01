@@ -67,12 +67,23 @@ input guardrails → FAQ retrieval → fine-tuned model → output guardrails.
 `confidence` comes from retrieval strength: `high` (top FAQ score ≥ 0.80), `medium` (0.70–0.80),
 `low` (below 0.70, answer withheld). It says the question is in scope, not that the answer is correct.
 
-## Other endpoints (planned for Day 3)
+## Other endpoints
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /v1/health` | Liveness plus the model version currently served |
-| `GET /v1/models` | Registered versions, their evaluation scores and which one is live |
-| `POST /v1/models/{version}/promote` | Serve a version that passed the release gate |
-| `POST /v1/models/rollback` | Return to the previously served version |
-| `GET /v1/evaluations` | Latest evaluation summaries (base vs fine-tuned, with and without RAG) |
+| `GET /v1/health` | Liveness plus the model version and checksum currently served |
+| `POST /v1/feedback` | Rate an answer (good / bad), linked to its `trace_id` |
+| `POST /v1/auth/login` · `POST /v1/auth/logout` · `GET /v1/auth/me` | Session login for the web platform |
+| `GET /v1/datasets` · `GET /v1/datasets/{id}` · `POST /v1/datasets` | List, inspect and register dataset sources |
+| `POST /v1/datasets/{id}/prepare` · `POST /v1/datasets/{id}/approve` | Record preparation and approve a dataset version |
+| `GET /v1/runs` · `GET /v1/runs/{id}` · `POST /v1/runs` · `GET /v1/base-models` | Training runs and approved base models |
+| `GET /v1/models` | Registered versions, their evaluation evidence and which one is live |
+| `POST /v1/models/register` · `POST /v1/models/{version}/review` | Register a candidate; approve or reject it |
+| `POST /v1/models/{version}/promote` | Serve an approved version (the server reloads it) |
+| `POST /v1/deployments/production/rollback` | Return to the previously served version |
+| `GET /v1/evaluations` | Evaluation summaries per version |
+| `GET /v1/monitoring` · `GET /metrics` | SLO status and recent requests; Prometheus metrics (bearer token) |
+| `GET/POST /v1/assistants` · `POST /v1/assistants/{id}/review` | Team assistants and their approval |
+| `GET /v1/users` · `POST /v1/users/{username}/assistants` · `GET /v1/audit` | Users, assistant assignment and the audit log |
+
+Admin-only actions (approvals, promote, rollback, users) are enforced on the server by role, not only hidden in the UI.
