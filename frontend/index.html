@@ -56,11 +56,13 @@ const { ResponsiveContainer, LineChart, Line, BarChart, Bar, Legend, XAxis, YAxi
 /* ------------------------------ API helper ------------------------------ */
 const TOKEN_KEY = "hdfc_token";
 
+// The login token lives in sessionStorage, which belongs to one tab, so each tab can be signed in as a different
+// role (e.g. admin in one tab, employee in another). localStorage would be shared by every tab of the site.
 function getToken() {
-  try { return localStorage.getItem(TOKEN_KEY); } catch { return null; }
+  try { return sessionStorage.getItem(TOKEN_KEY); } catch { return null; }
 }
 function setToken(token) {
-  try { token ? localStorage.setItem(TOKEN_KEY, token) : localStorage.removeItem(TOKEN_KEY); } catch {}
+  try { token ? sessionStorage.setItem(TOKEN_KEY, token) : sessionStorage.removeItem(TOKEN_KEY); } catch {}
 }
 
 // Calls the API with the login token and turns error responses into readable messages
