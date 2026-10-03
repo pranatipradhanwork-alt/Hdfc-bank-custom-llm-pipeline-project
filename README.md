@@ -11,6 +11,7 @@ a role-based web platform and monitoring.
 | **Rollback target** | `llama_v2` |
 | **Deployed app** | https://shyam003-hdfc-ai-platform.hf.space (Hugging Face Space, CPU; sign in with the demo accounts provided with the submission) |
 | **Demo video** | _link to be added_ |
+| **Presentation** | [`docs/presentation.pdf`](docs/presentation.pdf) (20 slides) |
 | **Model card** | [`MODEL_CARD.md`](MODEL_CARD.md) |
 | **API contract** | [`docs/api-contract.md`](docs/api-contract.md) |
 
