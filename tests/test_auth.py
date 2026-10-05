@@ -102,6 +102,50 @@ def test_rate_limit_blocks_after_limit():
     auth.allow_request("eng", limit=3)  # other callers have their own limit
 
 
+def test_each_session_has_its_own_limit(monkeypatch):
+    # Two people signed in to the same account do not block each other
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "REQUESTS_PER_MINUTE", 2)
+    monkeypatch.setattr(auth, "ACCOUNT_REQUESTS_PER_MINUTE", 10)
+    for _ in range(2):
+        auth.allow_person_request("reviewer", "token-a")
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_person_request("reviewer", "token-a")
+    auth.allow_person_request("reviewer", "token-b")
+
+
+def test_account_ceiling_covers_all_sessions(monkeypatch):
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "REQUESTS_PER_MINUTE", 5)
+    monkeypatch.setattr(auth, "ACCOUNT_REQUESTS_PER_MINUTE", 3)
+    for token in ("t1", "t2", "t3"):
+        auth.allow_person_request("reviewer", token)
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_person_request("reviewer", "t4")
+    auth.allow_person_request("engineer", "t5")  # other accounts are unaffected
+
+
+def test_blocked_request_is_not_counted(monkeypatch):
+    # A refused request must not use up room in the other window
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "REQUESTS_PER_MINUTE", 1)
+    monkeypatch.setattr(auth, "ACCOUNT_REQUESTS_PER_MINUTE", 2)
+    auth.allow_person_request("reviewer", "t1")
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_person_request("reviewer", "t1")
+    auth.allow_person_request("reviewer", "t2")
+
+
+def test_applications_have_their_own_limit(monkeypatch):
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "APP_REQUESTS_PER_MINUTE", 2)
+    auth.allow_app_request()
+    auth.allow_app_request()
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_app_request()
+    auth.allow_person_request("reviewer", "t1")  # people are counted separately
+
+
 def test_short_password_is_refused():
     with pytest.raises(ValueError):
         auth.set_password("ana", "short")

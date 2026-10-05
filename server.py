@@ -333,14 +333,17 @@ def gateway_caller(authorization, x_api_key, assistant_id):
         raise HTTPException(status_code=403, detail=f"Assistant {assistant_id} is not approved yet")
     if APP_KEY and x_api_key == APP_KEY:
         caller = "application"
+        check_rate = auth.allow_app_request
     else:
         user = current_user(authorization)
         if not auth.can_use_assistant(user, assistant_id):
             control_plane.audit(user["username"], "use_assistant", assistant_id, "denied", "Assistant not assigned")
             raise HTTPException(status_code=403, detail="This assistant is not assigned to you")
         caller = user["username"]
+        token = (authorization or "").removeprefix("Bearer ").strip()
+        check_rate = lambda: auth.allow_person_request(caller, token)
     try:
-        auth.allow_request(caller)
+        check_rate()
     except auth.TooManyAttempts as error:
         control_plane.audit(caller, "use_assistant", assistant_id, "denied", "Rate limit reached")
         raise HTTPException(status_code=429, detail=str(error))
