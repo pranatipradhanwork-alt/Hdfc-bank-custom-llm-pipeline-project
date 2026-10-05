@@ -62,6 +62,18 @@ model (more than 33 / 50 fully correct, fewer than 5 harmful), and the adapter p
 - **Role-based web platform and typed API:** FastAPI gateway with Pydantic contracts, API keys, login, rate limits,
   monitoring (Prometheus metrics, SLOs) and feedback.
 
+## Screenshots
+
+| | |
+|---|---|
+| **Sign-in**: access depends on the role ![Login](docs/screenshots/01_login.png) | **Dashboard**: live model, runs, approvals and the lifecycle ![Dashboard](docs/screenshots/02_dashboard.png) |
+| **AI Assistant**: cited answers, a masked card number, an out-of-scope question escalated ![AI Assistant](docs/screenshots/03_ai_assistant.png) | **Evaluations**: Llama vs Qwen, held-out vs customer wording, safety and human review ![Evaluations](docs/screenshots/04_evaluations.png) |
+| **Training jobs**: every run with its platform (Windows / Linux GPU, macOS) and data version ![Training jobs](docs/screenshots/05_training_jobs.png) | **Model registry**: every version with status, scores and checksum ![Model registry](docs/screenshots/06_model_registry.png) |
+| **Deployments**: the live model, release checks and one-click rollback ![Deployments](docs/screenshots/07_deployments.png) | **Monitoring**: latency, blocked requests by type, recent requests ![Monitoring](docs/screenshots/08_monitoring.png) |
+| **Datasets**: registered sources; only approved data can be used ![Datasets](docs/screenshots/09_datasets.png) | **Users & access**: roles and assigned assistants ![Users and access](docs/screenshots/10_users_and_access.png) |
+| **Audit log**: every sign-in, approval and release ![Audit log](docs/screenshots/11_audit_log.png) | **Employee view**: bank staff only see the assistant ![Employee view](docs/screenshots/12_employee_assistant.png) |
+| **Employee settings**: profile and the single permission ![Employee settings](docs/screenshots/13_employee_settings.png) | **AI engineer view**: approvals are view-only without the admin role ![Engineer approvals](docs/screenshots/14_engineer_approvals_view_only.png) |
+
 ## Architecture
 
 ```
