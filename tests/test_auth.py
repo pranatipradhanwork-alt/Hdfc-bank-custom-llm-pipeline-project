@@ -13,6 +13,7 @@ def temporary_users(tmp_path, monkeypatch):
     auth.add_user("ana", "Ana", "employee", "Support", ["customer_faq"], "correct-horse-1")
     auth.add_user("eng", "Eng", "ai_engineer", "AI/ML", [], "correct-horse-2")
     auth.add_user("boss", "Boss", "admin", "Governance", [], "correct-horse-3")
+    auth.add_user("rev", "Rev", "reviewer", "Evaluation", [], "correct-horse-4")
 
 
 def test_password_is_stored_as_hash_only():
@@ -74,6 +75,16 @@ def test_employee_only_uses_assigned_assistants():
     assert not auth.can_use_assistant(employee, "loan_assistant")
 
 
+def test_reviewer_can_view_and_ask_but_not_change_anything():
+    reviewer = auth.public(auth.find_user("rev"))
+    assert auth.can(reviewer, "view_platform")
+    assert auth.can(reviewer, "use_assistant")
+    assert auth.can_use_assistant(reviewer, "customer_faq")
+    for permission in ["register_dataset", "prepare_dataset", "request_run", "register_model", "create_assistant",
+                       "approve_dataset", "review_model", "review_assistant", "promote", "rollback", "manage_users"]:
+        assert not auth.can(reviewer, permission)
+
+
 def test_account_locks_after_five_wrong_passwords():
     auth.failed_logins.clear()
     for _ in range(auth.MAX_FAILED_LOGINS):
@@ -100,6 +111,50 @@ def test_rate_limit_blocks_after_limit():
     with pytest.raises(auth.TooManyAttempts):
         auth.allow_request("ana", limit=3)
     auth.allow_request("eng", limit=3)  # other callers have their own limit
+
+
+def test_each_session_has_its_own_limit(monkeypatch):
+    # Two people signed in to the same account do not block each other
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "REQUESTS_PER_MINUTE", 2)
+    monkeypatch.setattr(auth, "ACCOUNT_REQUESTS_PER_MINUTE", 10)
+    for _ in range(2):
+        auth.allow_person_request("reviewer", "token-a")
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_person_request("reviewer", "token-a")
+    auth.allow_person_request("reviewer", "token-b")
+
+
+def test_account_ceiling_covers_all_sessions(monkeypatch):
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "REQUESTS_PER_MINUTE", 5)
+    monkeypatch.setattr(auth, "ACCOUNT_REQUESTS_PER_MINUTE", 3)
+    for token in ("t1", "t2", "t3"):
+        auth.allow_person_request("reviewer", token)
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_person_request("reviewer", "t4")
+    auth.allow_person_request("engineer", "t5")  # other accounts are unaffected
+
+
+def test_blocked_request_is_not_counted(monkeypatch):
+    # A refused request must not use up room in the other window
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "REQUESTS_PER_MINUTE", 1)
+    monkeypatch.setattr(auth, "ACCOUNT_REQUESTS_PER_MINUTE", 2)
+    auth.allow_person_request("reviewer", "t1")
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_person_request("reviewer", "t1")
+    auth.allow_person_request("reviewer", "t2")
+
+
+def test_applications_have_their_own_limit(monkeypatch):
+    auth.recent_requests.clear()
+    monkeypatch.setattr(auth, "APP_REQUESTS_PER_MINUTE", 2)
+    auth.allow_app_request()
+    auth.allow_app_request()
+    with pytest.raises(auth.TooManyAttempts):
+        auth.allow_app_request()
+    auth.allow_person_request("reviewer", "t1")  # people are counted separately
 
 
 def test_short_password_is_refused():

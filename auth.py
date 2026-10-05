@@ -23,6 +23,8 @@ SESSION_HOURS = 8
 # What each role may do. Admin approves; engineers build but cannot approve their own work.
 PERMISSIONS = {
     "employee": {"use_assistant"},
+    # Read-only access for evaluators and auditors: every page and the assistants, but no changes
+    "reviewer": {"use_assistant", "view_platform"},
     "ai_engineer": {"use_assistant", "view_platform", "register_dataset", "prepare_dataset", "request_run",
                     "register_model", "create_assistant"},
     "admin": {"use_assistant", "view_platform", "register_dataset", "prepare_dataset", "request_run",
@@ -35,7 +37,11 @@ sessions = {}  # token -> {"username": ..., "expires": ...}
 # Abuse protection. Counters live in memory (a restart resets them); production would keep them in Redis.
 MAX_FAILED_LOGINS = 5          # wrong passwords allowed per username ...
 LOCKOUT_SECONDS = 15 * 60      # ... within this window before the account is locked for the rest of it
-REQUESTS_PER_MINUTE = int(os.getenv("REQUESTS_PER_MINUTE", "20"))  # gateway calls per caller per minute
+REQUESTS_PER_MINUTE = int(os.getenv("REQUESTS_PER_MINUTE", "20"))  # questions per signed-in session per minute
+# All sessions of one account together, so signing in many times does not multiply the limit
+ACCOUNT_REQUESTS_PER_MINUTE = int(os.getenv("ACCOUNT_REQUESTS_PER_MINUTE", str(5 * REQUESTS_PER_MINUTE)))
+# Applications share the app key, so they get their own, higher limit
+APP_REQUESTS_PER_MINUTE = int(os.getenv("APP_REQUESTS_PER_MINUTE", "120"))
 failed_logins = {}             # username -> times of recent wrong passwords
 recent_requests = {}           # caller -> times of recent gateway calls
 
@@ -49,13 +55,31 @@ def recent(times, window):
     return [t for t in times if now - t < window]
 
 
+def allow_requests(limits):
+    """Sliding one-minute windows: limits maps a key to its limit. Every key must have room before any is counted."""
+    windows = {key: recent(recent_requests.get(key, []), 60) for key in limits}
+    for key, limit in limits.items():
+        if len(windows[key]) >= limit:
+            raise TooManyAttempts(f"Rate limit reached: {limit} requests per minute. Please wait and try again.")
+    now = time.time()
+    for key, times in windows.items():
+        recent_requests[key] = times + [now]
+
+
 def allow_request(caller, limit=REQUESTS_PER_MINUTE):
-    """Sliding one-minute window per caller; raises TooManyAttempts when the limit is reached."""
-    times = recent(recent_requests.get(caller, []), 60)
-    if len(times) >= limit:
-        raise TooManyAttempts(f"Rate limit reached: {limit} requests per minute. Please wait and try again.")
-    times.append(time.time())
-    recent_requests[caller] = times
+    """One sliding one-minute window per caller; raises TooManyAttempts when the limit is reached."""
+    allow_requests({caller: limit})
+
+
+def allow_person_request(username, token):
+    # Each sign-in has its own limit, so people sharing a demo account do not block each other,
+    # and the account as a whole has a ceiling. Sessions are keyed by a hash, not the raw token.
+    session = "session:" + hashlib.sha256(token.encode()).hexdigest()[:16]
+    allow_requests({session: REQUESTS_PER_MINUTE, "account:" + username: ACCOUNT_REQUESTS_PER_MINUTE})
+
+
+def allow_app_request():
+    allow_requests({"application": APP_REQUESTS_PER_MINUTE})
 
 
 def load_users():
@@ -126,8 +150,8 @@ def can(user, action):
 
 
 def can_use_assistant(user, assistant_id):
-    # Admins and engineers can test every assistant; employees only the ones assigned to them
-    return user["role"] in ("admin", "ai_engineer") or assistant_id in user["assistants"]
+    # Admins, engineers and reviewers can try every assistant; employees only the ones assigned to them
+    return user["role"] in ("admin", "ai_engineer", "reviewer") or assistant_id in user["assistants"]
 
 
 def add_user(username, name, role, team, assistants, password=None):
