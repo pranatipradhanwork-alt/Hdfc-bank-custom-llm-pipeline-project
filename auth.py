@@ -23,6 +23,8 @@ SESSION_HOURS = 8
 # What each role may do. Admin approves; engineers build but cannot approve their own work.
 PERMISSIONS = {
     "employee": {"use_assistant"},
+    # Read-only access for evaluators and auditors: every page and the assistants, but no changes
+    "reviewer": {"use_assistant", "view_platform"},
     "ai_engineer": {"use_assistant", "view_platform", "register_dataset", "prepare_dataset", "request_run",
                     "register_model", "create_assistant"},
     "admin": {"use_assistant", "view_platform", "register_dataset", "prepare_dataset", "request_run",
@@ -148,8 +150,8 @@ def can(user, action):
 
 
 def can_use_assistant(user, assistant_id):
-    # Admins and engineers can test every assistant; employees only the ones assigned to them
-    return user["role"] in ("admin", "ai_engineer") or assistant_id in user["assistants"]
+    # Admins, engineers and reviewers can try every assistant; employees only the ones assigned to them
+    return user["role"] in ("admin", "ai_engineer", "reviewer") or assistant_id in user["assistants"]
 
 
 def add_user(username, name, role, team, assistants, password=None):

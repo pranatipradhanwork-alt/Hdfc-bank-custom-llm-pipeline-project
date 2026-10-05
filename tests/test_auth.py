@@ -13,6 +13,7 @@ def temporary_users(tmp_path, monkeypatch):
     auth.add_user("ana", "Ana", "employee", "Support", ["customer_faq"], "correct-horse-1")
     auth.add_user("eng", "Eng", "ai_engineer", "AI/ML", [], "correct-horse-2")
     auth.add_user("boss", "Boss", "admin", "Governance", [], "correct-horse-3")
+    auth.add_user("rev", "Rev", "reviewer", "Evaluation", [], "correct-horse-4")
 
 
 def test_password_is_stored_as_hash_only():
@@ -72,6 +73,16 @@ def test_employee_only_uses_assigned_assistants():
     employee = auth.public(auth.find_user("ana"))
     assert auth.can_use_assistant(employee, "customer_faq")
     assert not auth.can_use_assistant(employee, "loan_assistant")
+
+
+def test_reviewer_can_view_and_ask_but_not_change_anything():
+    reviewer = auth.public(auth.find_user("rev"))
+    assert auth.can(reviewer, "view_platform")
+    assert auth.can(reviewer, "use_assistant")
+    assert auth.can_use_assistant(reviewer, "customer_faq")
+    for permission in ["register_dataset", "prepare_dataset", "request_run", "register_model", "create_assistant",
+                       "approve_dataset", "review_model", "review_assistant", "promote", "rollback", "manage_users"]:
+        assert not auth.can(reviewer, permission)
 
 
 def test_account_locks_after_five_wrong_passwords():

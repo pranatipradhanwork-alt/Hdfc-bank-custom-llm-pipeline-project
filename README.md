@@ -123,7 +123,7 @@ model (more than 33 / 50 fully correct, fewer than 5 harmful), and the adapter p
 | Training | **PyTorch**, Hugging Face **Transformers**, **PEFT** (LoRA), **TRL** (SFTTrainer), bitsandbytes (4-bit QLoRA), Accelerate, **MLflow** |
 | Retrieval | sentence-transformers with **BAAI/bge-small-en-v1.5**, NumPy |
 | Serving | **FastAPI**, Uvicorn, **Pydantic**, Hugging Face Hub (adapter and index storage) |
-| Safety and testing | Custom guardrails, **promptfoo** (red-team suite), **pytest** (59 tests), GitHub Actions CI |
+| Safety and testing | Custom guardrails, **promptfoo** (red-team suite), **pytest** (60 tests), GitHub Actions CI |
 | Deployment and monitoring | **Docker**, Hugging Face Spaces, Kubernetes manifests, **Prometheus**, **Grafana** |
 | Frontend | React (single page) with Recharts |
 
@@ -306,6 +306,7 @@ from the registered one. With Docker, `docker compose up --build` starts the pla
 |---|---|
 | Admin | Everything, including approving models, datasets and assistants, promote, rollback, users |
 | AI Engineer | Register and prepare datasets, request runs, register models; cannot approve |
+| Reviewer | Read-only: every page and the assistants, no changes (for evaluators and auditors) |
 | Employee | Use the assistants assigned to them |
 
 ### Deployment
@@ -341,7 +342,7 @@ All endpoints are under `/v1`; the full contract is in [`docs/api-contract.md`](
 ## Testing and safety
 
 ```bash
-python -m pytest -q tests                # 59 unit tests; also run by GitHub Actions on every push
+python -m pytest -q tests                # 60 unit tests; also run by GitHub Actions on every push
 ```
 
 The promptfoo suite (36 cases: prompt injection, transactions, personal data, credentials, privacy, off-topic,
