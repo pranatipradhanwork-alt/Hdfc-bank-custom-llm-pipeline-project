@@ -36,6 +36,15 @@ can be rolled back.
 | AI engineers | Datasets, training runs, evaluations and model registration |
 | Admins (risk / approvers) | Approvals, promotion, rollback, users and the audit log |
 
+**User journey**
+
+| User | Journey |
+|---|---|
+| Bank employee | Signs in → AI Assistant → asks a customer's question → reads the cited answer (or the escalation message) → rates it Good / Bad |
+| Bank app (customer) | Sends the question to `POST /v1/inference` with the app key → receives a typed answer with citations, or an escalation |
+| AI engineer | Registers and prepares a dataset → requests a training run → evaluates the adapter → registers the model as **pending** |
+| Admin | Approves the dataset → reviews the model's evidence → approves → **promotes** it live → watches Monitoring; rolls back if needed |
+
 **Success criteria** (release gate, all met by `llama_v3_1ep`): customer-worded ROUGE-L above the live model's 0.51,
 held-out ROUGE-L at least 0.82, promptfoo red-team suite fully passing (36 / 36), human review better than the live
 model (more than 33 / 50 fully correct, fewer than 5 harmful), and the adapter published with a checksum.
@@ -135,6 +144,16 @@ model (more than 33 / 50 fully correct, fewer than 5 harmful), and the adapter p
 | [Banking77](https://github.com/PolyAI-LDN/task-specific-datasets) (PolyAI, CC BY 4.0): customer messages with 77 intents | A separate evaluation table; optional intent training with `INCLUDE_BANKING77=1` (not in the live model) |
 | `data/rag_reworded_questions.csv`: 30 test questions rewritten in customer wording | The customer-worded evaluation |
 | `docs/human_review_*.csv`: 50 graded answers per model | Human evaluation and release decisions |
+
+**Data structures**
+
+| Store | Fields |
+|---|---|
+| Delta table `cleaned_banking_table` (one row per FAQ) | `User_Query`, `Target_Banking_Response`, `Task` (`faq` or `intent`), `Source` (`BankFAQs` / `Banking77`), `Split` (`train` / `validation` / `test`) |
+| RAG index `models/rag_index/` | `faqs.parquet` (`faq_id`, `User_Query`, `Target_Banking_Response`), `embeddings.npy` (1,405 × 384, normalised), `meta.json` (Delta version, embedding model) |
+| Model registry `registry.json` (one entry per version) | `status`, `run_id`, `base_model`, `adapter_sha256`, `training` (platform, data version, commit), `evaluation` (scores, safety, human review), `notes`; plus `live`, `previous` and a release `history` |
+| Answer `InferenceResponse` | `trace_id`, `answer`, `citations` (FAQ id, question, score, data version), `confidence`, `escalation_required`, `missing_information`, `policy_flags`, `model` (version, checksum), `latency_ms` |
+| Logs `control/*.jsonl` | Requests (trace ID, caller, model version and checksum, confidence, escalation, policy flags, latency; **the question itself is not stored**), feedback (trace ID, rating, comment) and the audit log (who did what, when, result) |
 
 No real customer data is used. Card, account and phone numbers, emails and OTPs are masked with the same rules in
 the training data and at answer time.
@@ -381,3 +400,14 @@ Answers below are from the live model (`llama_v3_1ep`) on customer-worded test q
 - Retrieval can miss the right FAQ for some wordings; "confidence" measures retrieval similarity, not correctness.
 - The human review covers 50 questions, so its accuracy is an estimate.
 - English only and single-turn. Not yet implemented: artifact signing, canary releases, GPU serving with vLLM / TGI.
+
+## Future improvements
+
+- **Fix the remaining harmful answers** (car-loan age, business-loan collateral) with targeted training examples and an
+  age / eligibility check against the cited FAQ, then re-run the human review.
+- **Better retrieval for customer wording:** extra phrasings per FAQ and a re-ranker on the top results.
+- **Live data:** read rates and fees from a governed source instead of a FAQ snapshot.
+- **Safer releases:** signed model artifacts, canary releases (a small share of traffic first) and automatic rollback on
+  SLO breaches.
+- **Scale:** GPU serving with vLLM / TGI, sessions and rate-limit counters in Redis, the registry and users in a database.
+- **Product:** multi-turn conversations, Hindi / Hinglish, and an ML safety classifier alongside the rule-based guardrails.
