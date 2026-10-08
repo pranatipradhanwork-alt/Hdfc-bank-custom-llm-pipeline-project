@@ -1,5 +1,8 @@
 # HDFC Bank: Custom LLM Development Pipeline
 
+**Authors:** Pranati Pradhan ([@pranatipradhanwork-alt](https://github.com/pranatipradhanwork-alt)) · Shyam Sharma ([@003-kalki](https://github.com/003-kalki))  
+HDFC GenAI Capstone · AlmaBetter · October 2026
+
 A governed pipeline that turns approved banking data into a fine-tuned, retrieval-grounded assistant for HDFC Bank
 customer FAQs, and proves its quality and safety before it is served: LoRA / QLoRA fine-tuning, RAG, guardrails,
 automatic and human evaluation, a red-team suite, a model registry with approvals and rollback, a FastAPI gateway,
