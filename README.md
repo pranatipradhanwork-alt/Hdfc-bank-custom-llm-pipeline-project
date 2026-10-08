@@ -428,8 +428,12 @@ Answers below are from the live model (`llama_v3_1ep`) on customer-worded test q
 - **Data pipeline (initial):** data download, PII masking and versioned Delta Lake tables.
 - **Model safety and release:** masking of card numbers typed with spaces or dashes; independent re-evaluation,
   approval and promotion of the live model.
-- **Platform and documentation:** read-only reviewer role, per-sign-in rate limits, dashboard evaluation views,
-  this README and the presentation.
+- **Frontend (web platform):** the evaluation chart (grouped bars per model, labelled axes), training runs with the
+  platform they ran on (Windows / Linux / macOS), the human-review and safety columns, back / forward navigation
+  with page links, a responsive layout for small screens, refresh feedback, and the reviewer role in the UI
+  (`frontend/index.html`).
+- **Platform and documentation:** read-only reviewer role, per-sign-in rate limits, this README and the
+  presentation.
 - Early prototypes of the FastAPI gateway, the promptfoo suite and a LangGraph orchestrator (branches
   `feat-langgraph-pipeline` and `feat-promptfoo-tests`).
 
