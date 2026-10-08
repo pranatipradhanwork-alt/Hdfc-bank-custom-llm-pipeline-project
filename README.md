@@ -434,11 +434,21 @@ Answers below are from the live model (`llama_v3_1ep`) on customer-worded test q
   `feat-langgraph-pipeline` and `feat-promptfoo-tests`).
 
 **Shyam Sharma: Platform and deployment**
-- FastAPI gateway and control-plane APIs, the web platform with login, roles and audit log, team assistants.
-- Model registry with promotion and rollback, model card, loading adapters from Hugging Face.
-- Retrieval, guardrails, citations and grouped (leakage-safe) data splits.
-- Monitoring (SLOs, Prometheus), abuse protection, infrastructure and CI, the promptfoo suite and Hugging Face
-  Space deployment.
-- Ran the final Llama training on his NVIDIA GPU using the fine-tuning pipeline.
+- **FastAPI gateway and APIs:** the typed `/v1` API with Pydantic contracts, inference, feedback and the
+  control-plane endpoints for datasets, runs, models, assistants, users and audit (`server.py`, `schemas.py`,
+  `control_plane.py`).
+- **Web platform:** the HDFC AI Platform UI with login, roles, audit log, dashboards and team assistants
+  (`frontend/index.html`, `auth.py`).
+- **Retrieval and guardrails:** the FAQ embedding index and search, citations, input and output guardrails, the
+  governed answer path, and the grouped (leakage-safe) data splits (`rag.py`, `guardrails.py`, `inference.py`,
+  `clean_data.py`).
+- **Evaluation:** `evaluate.py` with the base vs fine-tuned and with vs without retrieval comparison.
+- **Model governance:** the model registry with promotion and rollback, the model card, adapters and index loaded
+  from Hugging Face with checksum verification (`registry.py`).
+- **Training on GPU:** Llama 3.2 1B on CUDA, staged runs, MLflow lineage, and the final Llama training runs on his
+  NVIDIA GPU using the fine-tuning pipeline.
+- **Operations and safety testing:** SLOs and Prometheus metrics, login lockout and rate limiting, infrastructure and
+  CI, the promptfoo red-team suite and the other-bank guardrail.
+- **Deployment:** the CPU serving image and the Hugging Face Space; separate logins per browser tab.
 
 **Together:** design decisions, the two-grader human review, the presentation and the demo.
