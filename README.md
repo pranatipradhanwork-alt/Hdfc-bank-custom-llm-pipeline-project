@@ -414,3 +414,31 @@ Answers below are from the live model (`llama_v3_1ep`) on customer-worded test q
   SLO breaches.
 - **Scale:** GPU serving with vLLM / TGI, sessions and rate-limit counters in Redis, the registry and users in a database.
 - **Product:** multi-turn conversations, Hindi / Hinglish, and an ML safety classifier alongside the rule-based guardrails.
+
+## Team contribution
+
+**Pranati Pradhan: AI/ML engineering**
+- **Fine-tuning pipeline (lead):** LoRA / QLoRA training with MLflow tracking, automatic hardware routing with
+  configurations for NVIDIA GPUs, Apple Silicon and CPU (`train.py`, `configs/training/`).
+- **RAG-aware training:** training the model on the same prompt it is served with, the fix that took
+  customer-worded accuracy from 0.51 to 0.91; first proven on Qwen on a Mac.
+- **Model experiments and selection:** the Qwen runs and the Llama vs Qwen comparison.
+- **Evaluation:** retrieval scores and the `--index` option in `evaluate.py`; the human reviews of llama_v2 and
+  llama_v3_1ep (62% → 82% fully correct).
+- **Data pipeline (initial):** data download, PII masking and versioned Delta Lake tables.
+- **Model safety and release:** masking of card numbers typed with spaces or dashes; independent re-evaluation,
+  approval and promotion of the live model.
+- **Platform and documentation:** read-only reviewer role, per-sign-in rate limits, dashboard evaluation views,
+  this README and the presentation.
+- Early prototypes of the FastAPI gateway, the promptfoo suite and a LangGraph orchestrator (branches
+  `feat-langgraph-pipeline` and `feat-promptfoo-tests`).
+
+**Shyam Sharma: Platform and deployment**
+- FastAPI gateway and control-plane APIs, the web platform with login, roles and audit log, team assistants.
+- Model registry with promotion and rollback, model card, loading adapters from Hugging Face.
+- Retrieval, guardrails, citations and grouped (leakage-safe) data splits.
+- Monitoring (SLOs, Prometheus), abuse protection, infrastructure and CI, the promptfoo suite and Hugging Face
+  Space deployment.
+- Ran the final Llama training on his NVIDIA GPU using the fine-tuning pipeline.
+
+**Together:** design decisions, the two-grader human review, the presentation and the demo.
