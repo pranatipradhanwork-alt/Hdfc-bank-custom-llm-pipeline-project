@@ -415,3 +415,45 @@ Answers below are from the live model (`llama_v3_1ep`) on customer-worded test q
   SLO breaches.
 - **Scale:** GPU serving with vLLM / TGI, sessions and rate-limit counters in Redis, the registry and users in a database.
 - **Product:** multi-turn conversations, Hindi / Hinglish, and an ML safety classifier alongside the rule-based guardrails.
+
+## Team contribution
+
+**Pranati Pradhan: AI/ML engineering**
+- **Fine-tuning pipeline (lead):** LoRA / QLoRA training with MLflow tracking, automatic hardware routing with
+  configurations for NVIDIA GPUs, Apple Silicon and CPU (`train.py`, `configs/training/`).
+- **RAG-aware training:** training the model on the same prompt it is served with, the fix that took
+  customer-worded accuracy from 0.51 to 0.91; first proven on Qwen on a Mac.
+- **Model experiments and selection:** the Qwen runs and the Llama vs Qwen comparison.
+- **Evaluation:** retrieval scores and the `--index` option in `evaluate.py`; the human reviews of llama_v2 and
+  llama_v3_1ep (62% → 82% fully correct).
+- **Data pipeline (initial):** data download, PII masking and versioned Delta Lake tables.
+- **Model safety and release:** masking of card numbers typed with spaces or dashes; independent re-evaluation,
+  approval and promotion of the live model.
+- **Frontend (web platform):** the evaluation chart (grouped bars per model, labelled axes), training runs with the
+  platform they ran on (Windows / Linux / macOS), the human-review and safety columns, back / forward navigation
+  with page links, a responsive layout for small screens, refresh feedback, and the reviewer role in the UI
+  (`frontend/index.html`).
+- **Platform and documentation:** read-only reviewer role, per-sign-in rate limits, this README and the
+  presentation.
+- Early prototypes of the FastAPI gateway, the promptfoo suite and a LangGraph orchestrator (branches
+  `feat-langgraph-pipeline` and `feat-promptfoo-tests`).
+
+**Shyam Sharma: Platform and deployment**
+- **FastAPI gateway and APIs:** the typed `/v1` API with Pydantic contracts, inference, feedback and the
+  control-plane endpoints for datasets, runs, models, assistants, users and audit (`server.py`, `schemas.py`,
+  `control_plane.py`).
+- **Web platform:** the HDFC AI Platform UI with login, roles, audit log, dashboards and team assistants
+  (`frontend/index.html`, `auth.py`).
+- **Retrieval and guardrails:** the FAQ embedding index and search, citations, input and output guardrails, the
+  governed answer path, and the grouped (leakage-safe) data splits (`rag.py`, `guardrails.py`, `inference.py`,
+  `clean_data.py`).
+- **Evaluation:** `evaluate.py` with the base vs fine-tuned and with vs without retrieval comparison.
+- **Model governance:** the model registry with promotion and rollback, the model card, adapters and index loaded
+  from Hugging Face with checksum verification (`registry.py`).
+- **Training on GPU:** Llama 3.2 1B on CUDA, staged runs, MLflow lineage, and the final Llama training runs on his
+  NVIDIA GPU using the fine-tuning pipeline.
+- **Operations and safety testing:** SLOs and Prometheus metrics, login lockout and rate limiting, infrastructure and
+  CI, the promptfoo red-team suite and the other-bank guardrail.
+- **Deployment:** the CPU serving image and the Hugging Face Space; separate logins per browser tab.
+
+**Together:** design decisions, the two-grader human review, the presentation and the demo.
