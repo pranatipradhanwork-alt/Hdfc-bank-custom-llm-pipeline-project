@@ -108,6 +108,21 @@ def login(request: LoginRequest):
     return {"token": token, "user": user}
 
 
+@app.post("/v1/auth/guest")
+def guest_login():
+    """Read-only reviewer session without a password, so evaluators need no credentials (GUEST_ACCESS=0 turns it off)."""
+    try:
+        token, user = auth.guest_login()
+    except auth.TooManyAttempts as error:
+        control_plane.audit(auth.GUEST_USERNAME, "guest_login", "-", "denied", str(error))
+        raise HTTPException(status_code=429, detail=str(error))
+    except PermissionError as error:
+        control_plane.audit(auth.GUEST_USERNAME, "guest_login", "-", "denied", str(error))
+        raise HTTPException(status_code=403, detail=str(error))
+    control_plane.audit(user["username"], "guest_login", "-", "success")
+    return {"token": token, "user": user}
+
+
 @app.post("/v1/auth/logout")
 def logout(authorization: str = Header(None)):
     user = current_user(authorization)

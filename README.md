@@ -12,7 +12,7 @@ a role-based web platform and monitoring.
 |---|---|
 | **Live model** | `llama_v3_1ep`: Llama 3.2 1B Instruct + LoRA adapter, trained on the served RAG prompt (since 1 Oct 2026) |
 | **Rollback target** | `llama_v2` |
-| **Deployed app** | https://shyam003-hdfc-ai-platform.hf.space (Hugging Face Space, CPU; sign in with the demo accounts provided with the submission) |
+| **Deployed app** | https://shyam003-hdfc-ai-platform.hf.space (Hugging Face Space, CPU). Reviewers: click **Continue as reviewer (read-only)**, no password needed |
 | **Demo video** | _link to be added_ |
 | **Presentation** | [`docs/presentation.pdf`](docs/presentation.pdf) (20 slides) |
 | **Model card** | [`MODEL_CARD.md`](MODEL_CARD.md) |
@@ -135,7 +135,7 @@ model (more than 33 / 50 fully correct, fewer than 5 harmful), and the adapter p
 | Training | **PyTorch**, Hugging Face **Transformers**, **PEFT** (LoRA), **TRL** (SFTTrainer), bitsandbytes (4-bit QLoRA), Accelerate, **MLflow** |
 | Retrieval | sentence-transformers with **BAAI/bge-small-en-v1.5**, NumPy |
 | Serving | **FastAPI**, Uvicorn, **Pydantic**, Hugging Face Hub (adapter and index storage) |
-| Safety and testing | Custom guardrails, **promptfoo** (red-team suite), **pytest** (60 tests), GitHub Actions CI |
+| Safety and testing | Custom guardrails, **promptfoo** (red-team suite), **pytest** (65 tests), GitHub Actions CI |
 | Deployment and monitoring | **Docker**, Hugging Face Spaces, Kubernetes manifests, **Prometheus**, **Grafana** |
 | Frontend | React (single page) with Recharts |
 
@@ -328,7 +328,7 @@ from the registered one. With Docker, `docker compose up --build` starts the pla
 |---|---|
 | Admin | Everything, including approving models, datasets and assistants, promote, rollback, users |
 | AI Engineer | Register and prepare datasets, request runs, register models; cannot approve |
-| Reviewer | Read-only: every page and the assistants, no changes (for evaluators and auditors) |
+| Reviewer | Read-only: every page and the assistants, no changes (for evaluators and auditors). **Continue as reviewer** on the sign-in page opens it without a password; set `GUEST_ACCESS=0` to turn it off |
 | Employee | Use the assistants assigned to them |
 
 ### Deployment
@@ -353,6 +353,7 @@ All endpoints are under `/v1`; the full contract is in [`docs/api-contract.md`](
 | `POST /v1/inference` | Answer a question through the governed path (API key in `x-api-key`) |
 | `POST /v1/feedback` | Rate an answer, linked to its trace ID |
 | `POST /v1/auth/login` · `/logout` · `GET /v1/auth/me` | Session login and current user |
+| `POST /v1/auth/guest` | Read-only reviewer session without a password (for evaluators) |
 | `GET/POST /v1/datasets` · `/{id}/prepare` · `/{id}/approve` | Register, prepare and approve dataset versions |
 | `GET/POST /v1/runs` · `GET /v1/runs/{id}` · `GET /v1/base-models` | Training runs and approved base models |
 | `GET /v1/models` · `POST /v1/models/register` · `/{version}/review` · `/{version}/promote` | Registry, review and promotion |
@@ -364,7 +365,7 @@ All endpoints are under `/v1`; the full contract is in [`docs/api-contract.md`](
 ## Testing and safety
 
 ```bash
-python -m pytest -q tests                # 60 unit tests; also run by GitHub Actions on every push
+python -m pytest -q tests                # 65 unit tests; also run by GitHub Actions on every push
 ```
 
 The promptfoo suite (36 cases: prompt injection, transactions, personal data, credentials, privacy, off-topic,
