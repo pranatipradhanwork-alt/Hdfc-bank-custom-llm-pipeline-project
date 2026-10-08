@@ -36,5 +36,14 @@
     "assistants": [],
     "password_hash": "50a6279c829dcca5336cfd3f08ec9d0d1d11b4fc853bb71b6a68eb3b0d627c27",
     "salt": "2731eed0d9a00e498ae77f8ca1bfe029"
+  },
+  {
+    "username": "reviewer",
+    "name": "Guest Reviewer",
+    "role": "reviewer",
+    "team": "Evaluation (read-only)",
+    "assistants": [],
+    "password_hash": null,
+    "salt": null
   }
 ]

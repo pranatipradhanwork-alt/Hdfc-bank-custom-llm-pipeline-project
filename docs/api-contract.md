@@ -74,6 +74,7 @@ input guardrails → FAQ retrieval → fine-tuned model → output guardrails.
 | `GET /v1/health` | Liveness plus the model version and checksum currently served |
 | `POST /v1/feedback` | Rate an answer (good / bad), linked to its `trace_id` |
 | `POST /v1/auth/login` · `POST /v1/auth/logout` · `GET /v1/auth/me` | Session login for the web platform |
+| `POST /v1/auth/guest` | Read-only reviewer session without a password; only ever grants the `reviewer` role, rate-limited, off with `GUEST_ACCESS=0` |
 | `GET /v1/datasets` · `GET /v1/datasets/{id}` · `POST /v1/datasets` | List, inspect and register dataset sources |
 | `POST /v1/datasets/{id}/prepare` · `POST /v1/datasets/{id}/approve` | Record preparation and approve a dataset version |
 | `GET /v1/runs` · `GET /v1/runs/{id}` · `POST /v1/runs` · `GET /v1/base-models` | Training runs and approved base models |

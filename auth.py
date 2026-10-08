@@ -34,6 +34,12 @@ PERMISSIONS = {
 
 sessions = {}  # token -> {"username": ..., "expires": ...}
 
+# Passwordless read-only access for evaluators: "Continue as reviewer" on the sign-in page.
+# The account has no password, so this is the only way in, and it is refused unless its role is read-only.
+GUEST_USERNAME = "reviewer"
+GUEST_ACCESS = os.getenv("GUEST_ACCESS", "1") == "1"  # GUEST_ACCESS=0 turns it off
+GUEST_LOGINS_PER_MINUTE = int(os.getenv("GUEST_LOGINS_PER_MINUTE", "30"))
+
 # Abuse protection. Counters live in memory (a restart resets them); production would keep them in Redis.
 MAX_FAILED_LOGINS = 5          # wrong passwords allowed per username ...
 LOCKOUT_SECONDS = 15 * 60      # ... within this window before the account is locked for the rest of it
@@ -127,8 +133,24 @@ def login(username, password):
         raise ValueError("Invalid username or password")
 
     failed_logins.pop(username, None)
+    return start_session(user)
+
+
+def guest_login():
+    """A read-only reviewer session without a password, for evaluators and auditors."""
+    if not GUEST_ACCESS:
+        raise PermissionError("Reviewer access is turned off on this server")
+    user = find_user(GUEST_USERNAME)
+    # Never hand out a role that can change anything, even if users.json is edited
+    if not user or PERMISSIONS[user["role"]] - PERMISSIONS["reviewer"]:
+        raise PermissionError("Reviewer access is not set up on this server")
+    allow_requests({"guest_login": GUEST_LOGINS_PER_MINUTE})
+    return start_session(user)
+
+
+def start_session(user):
     token = secrets.token_urlsafe(32)
-    sessions[token] = {"username": username, "expires": time.time() + SESSION_HOURS * 3600}
+    sessions[token] = {"username": user["username"], "expires": time.time() + SESSION_HOURS * 3600}
     return token, public(user)
 
 

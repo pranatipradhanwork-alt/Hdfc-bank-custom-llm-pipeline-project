@@ -165,3 +165,45 @@ def test_short_password_is_refused():
 def test_unknown_role_is_refused():
     with pytest.raises(ValueError):
         auth.add_user("x", "X", "superuser", "", [])
+
+
+def add_guest_reviewer(role="reviewer"):
+    # Like control/users.json: the guest account has no password
+    auth.add_user(auth.GUEST_USERNAME, "Guest Reviewer", role, "Evaluation", [])
+
+
+def test_guest_gets_a_read_only_session():
+    add_guest_reviewer()
+    token, user = auth.guest_login()
+    assert auth.user_for_token(token)["role"] == "reviewer"
+    assert set(user["permissions"]) == {"use_assistant", "view_platform"}
+
+
+def test_guest_account_cannot_sign_in_with_a_password():
+    add_guest_reviewer()
+    with pytest.raises(ValueError):
+        auth.login(auth.GUEST_USERNAME, "")
+
+
+def test_guest_access_never_hands_out_a_role_that_can_change_things():
+    add_guest_reviewer(role="admin")
+    with pytest.raises(PermissionError):
+        auth.guest_login()
+
+
+def test_guest_access_can_be_turned_off(monkeypatch):
+    add_guest_reviewer()
+    monkeypatch.setattr(auth, "GUEST_ACCESS", False)
+    with pytest.raises(PermissionError):
+        auth.guest_login()
+
+
+def test_guest_sign_ins_are_rate_limited(monkeypatch):
+    add_guest_reviewer()
+    monkeypatch.setattr(auth, "GUEST_LOGINS_PER_MINUTE", 2)
+    auth.recent_requests.pop("guest_login", None)
+    auth.guest_login()
+    auth.guest_login()
+    with pytest.raises(auth.TooManyAttempts):
+        auth.guest_login()
+    auth.recent_requests.pop("guest_login", None)
