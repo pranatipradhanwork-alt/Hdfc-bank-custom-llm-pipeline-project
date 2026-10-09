@@ -17,3 +17,7 @@ infrastructure/
 promptfoo/
 deploy/
 docker-compose.yml
+
+# Frontend: dependencies and build output (the Docker image builds the UI itself)
+frontend/node_modules/
+frontend/dist/

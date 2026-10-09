@@ -137,7 +137,7 @@ model (more than 33 / 50 fully correct, fewer than 5 harmful), and the adapter p
 | Serving | **FastAPI**, Uvicorn, **Pydantic**, Hugging Face Hub (adapter and index storage) |
 | Safety and testing | Custom guardrails, **promptfoo** (red-team suite), **pytest** (65 tests), GitHub Actions CI |
 | Deployment and monitoring | **Docker**, Hugging Face Spaces, Kubernetes manifests, **Prometheus**, **Grafana** |
-| Frontend | React (single page) with Recharts |
+| Frontend | **React 18** + **Vite**, **Tailwind CSS**, **Recharts** (`frontend/`) |
 
 ## Data sources
 
@@ -252,7 +252,7 @@ confidence, escalation flag, policy flags, model version and checksum, and a tra
 | `server.py`, `schemas.py`, `auth.py` | FastAPI gateway, typed contracts, login, roles and rate limits |
 | `registry.py`, `registry.json` | Model registry: versions, checksums, evidence, approvals, promotion and rollback |
 | `control_plane.py`, `control/` | Datasets, training runs, assistants, audit log, monitoring and SLOs |
-| `frontend/index.html` | Web platform (Admin, AI Engineer, Employee) |
+| `frontend/` | Web platform (Admin, AI Engineer, Reviewer, Employee): Vite + React app; `src/pages/` one file per page, `src/components/` shared UI and sidebar, `src/api.js` API client with the login token, `src/navigation.js` roles and routes |
 | `promptfoo/` | Red-team and quality suite against the live API, and its results |
 | `tests/` | Unit tests (guardrails, registry, control plane, login and roles); run in CI |
 | `infrastructure/`, `Dockerfile`, `docker-compose.yml`, `deploy/` | Prometheus, Grafana, Kubernetes manifests, container and Hugging Face Space |
@@ -316,9 +316,13 @@ MLflow.
 ## Run the platform
 
 ```bash
+cd frontend && npm install && npm run build && cd ..   # build the web UI once (Node 18+); writes frontend/dist
 set -a && source .env && set +a
 uvicorn server:app --port 7860           # web platform at http://localhost:7860, API at /v1, docs at /docs
 ```
+
+To work on the UI with live reload, keep the server running and start `npm run dev` in `frontend/`
+(http://localhost:5173; API calls are forwarded to port 7860). The Docker image builds the UI itself in a Node stage.
 
 On start the server loads the registry's live model from Hugging Face and refuses to serve it if its checksum differs
 from the registered one. With Docker, `docker compose up --build` starts the platform with Prometheus
@@ -432,7 +436,7 @@ Answers below are from the live model (`llama_v3_1ep`) on customer-worded test q
 - **Frontend (web platform):** the evaluation chart (grouped bars per model, labelled axes), training runs with the
   platform they ran on (Windows / Linux / macOS), the human-review and safety columns, back / forward navigation
   with page links, a responsive layout for small screens, refresh feedback, and the reviewer role in the UI
-  (`frontend/index.html`).
+  (`frontend/`).
 - **Platform and documentation:** read-only reviewer role, per-sign-in rate limits, this README and the
   presentation.
 - Early prototypes of the FastAPI gateway, the promptfoo suite and a LangGraph orchestrator (branches
@@ -443,7 +447,7 @@ Answers below are from the live model (`llama_v3_1ep`) on customer-worded test q
   control-plane endpoints for datasets, runs, models, assistants, users and audit (`server.py`, `schemas.py`,
   `control_plane.py`).
 - **Web platform:** the HDFC AI Platform UI with login, roles, audit log, dashboards and team assistants
-  (`frontend/index.html`, `auth.py`).
+  (`frontend/`, `auth.py`).
 - **Retrieval and guardrails:** the FAQ embedding index and search, citations, input and output guardrails, the
   governed answer path, and the grouped (leakage-safe) data splits (`rag.py`, `guardrails.py`, `inference.py`,
   `clean_data.py`).

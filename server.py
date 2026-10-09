@@ -10,7 +10,8 @@ import uuid
 from pathlib import Path
 
 from fastapi import FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse, PlainTextResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse
+from fastapi.staticfiles import StaticFiles
 
 import auth
 import control_plane
@@ -391,7 +392,18 @@ def feedback(request: FeedbackRequest, authorization: str = Header(None), x_api_
 
 
 # ---------- Web UI ----------
+# The React app in frontend/ is built with `npm run build` into frontend/dist (the Docker image builds it too)
+
+FRONTEND_DIST = Path("frontend/dist")
+if (FRONTEND_DIST / "assets").is_dir():
+    app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+
 
 @app.get("/", include_in_schema=False)
 def web_ui():
-    return FileResponse(Path("frontend/index.html"))
+    page = FRONTEND_DIST / "index.html"
+    if not page.exists():
+        return HTMLResponse("<p>The web UI is not built yet. Run <code>cd frontend && npm install && npm run build</code>, "
+                            "then restart the server. The API works without it: see <a href='/docs'>/docs</a>.</p>",
+                            status_code=503)
+    return FileResponse(page)

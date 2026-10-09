@@ -1,5 +1,5 @@
 # Runs the automated tests on every push and pull request, so a change that breaks a guardrail,
-# the registry, login and roles, or the control-plane rules cannot be merged unnoticed.
+# the registry, login and roles, the control-plane rules or the web UI build cannot be merged unnoticed.
 name: tests
 
 on:
@@ -33,3 +33,21 @@ jobs:
           json.load(open('registry.json'))
           print('config files OK')
           "
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # A broken import or JSX error fails here instead of showing a blank page after deployment
+      - name: Build the web UI
+        working-directory: frontend
+        run: |
+          npm ci --no-audit --no-fund
+          npm run build
