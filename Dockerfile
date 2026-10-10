@@ -1,6 +1,16 @@
 # Serving image for the HDFC FAQ assistant: CPU-only, runs on a Hugging Face Space or any Docker host.
 # Model files are not baked in: at startup inference.py downloads the adapter and FAQ index from the
 # private HF repo (HF_REPO) using the HF_TOKEN secret, and checks the adapter's SHA-256.
+
+# Stage 1: build the React web UI (frontend/) into static files
+FROM node:22-slim AS frontend
+WORKDIR /frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+COPY frontend/ ./
+RUN npm run build
+
+# Stage 2: the Python server, which serves the API and the built UI
 FROM python:3.14-slim
 
 # Hugging Face Spaces run the container as user 1000; give it a home it can write the model cache to
@@ -18,6 +28,7 @@ COPY --chown=user requirements-serve.txt .
 RUN pip install --no-cache-dir -r requirements-serve.txt
 
 COPY --chown=user . .
+COPY --chown=user --from=frontend /frontend/dist frontend/dist
 
 # 7860 is the port Hugging Face Spaces expects
 EXPOSE 7860
