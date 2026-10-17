@@ -1,0 +1,4 @@
+# SITE_ADDRESS comes from .env, e.g. 140-238-1-2.sslip.io (the VM's public IP with dashes, a free hostname)
+{$SITE_ADDRESS} {
+	reverse_proxy app:7860
+}

@@ -345,6 +345,9 @@ redeploy, upload the files of `main` to the Space (`git archive main`, with `dep
 `README.md`); the Space rebuilds automatically. The workflow `.github/workflows/keep-space-awake.yml` calls
 `/v1/health` once a day so the Space is not paused between review visits.
 
+The same image also runs on any Linux VM: [`deploy/oracle-vm.md`](deploy/oracle-vm.md) deploys it free on an
+Oracle Cloud Always Free Arm VM with HTTPS (`deploy/docker-compose.vm.yml`, Caddy).
+
 The Space runs on CPU, so answers are slower than on a GPU. Team
 assistants created at runtime keep their knowledge index on the Space's disk, so they last until the next restart.
 

@@ -21,6 +21,8 @@ ENV HOME=/home/user \
     PYTHONUNBUFFERED=1 \
     HF_REPO=hdfc-capstone/hdfc-faq-assistant
 WORKDIR /home/user/app
+# Create the cache and model folders as this user, so Docker volumes mounted there are writable by it
+RUN mkdir -p /home/user/.cache/huggingface /home/user/app/models
 
 # Dependencies first, so code changes don't reinstall them
 RUN pip install --no-cache-dir torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
