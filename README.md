@@ -12,8 +12,8 @@ a role-based web platform and monitoring.
 |---|---|
 | **Live model** | `llama_v3_1ep`: Llama 3.2 1B Instruct + LoRA adapter, trained on the served RAG prompt (since 1 Oct 2026) |
 | **Rollback target** | `llama_v2` |
-| **App on Hugging Face** | https://shyam003-hdfc-ai-platform.hf.space (Hugging Face Space, CPU). Reviewers: click **Continue as reviewer (read-only)**, no password needed |
 | **App from my laptop** | https://heave-fretful-negate.ngrok-free.dev (same app on the Apple GPU, online on request, see [Deployment](#deployment); click **Visit Site** on ngrok's notice, then **Continue as reviewer**) |
+| **App on Hugging Face** | https://shyam003-hdfc-ai-platform.hf.space (Hugging Face Space, CPU). Reviewers: click **Continue as reviewer (read-only)**, no password needed |
 | **Demo video** | [Watch the demo video (Google Drive)](https://drive.google.com/drive/folders/1rPJE1aa7948V_zUzESFsc6bPwTawB-9j?usp=sharing) |
 | **Presentation** | [`docs/presentation.pdf`](docs/presentation.pdf) (20 slides) |
 | **Model card** | [`MODEL_CARD.md`](MODEL_CARD.md) |
