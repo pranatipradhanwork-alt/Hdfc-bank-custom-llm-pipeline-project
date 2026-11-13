@@ -13,6 +13,7 @@ a role-based web platform and monitoring.
 | **Live model** | `llama_v3_1ep`: Llama 3.2 1B Instruct + LoRA adapter, trained on the served RAG prompt (since 1 Oct 2026) |
 | **Rollback target** | `llama_v2` |
 | **Deployed app** | https://shyam003-hdfc-ai-platform.hf.space (Hugging Face Space, CPU). Reviewers: click **Continue as reviewer (read-only)**, no password needed |
+| **Live demo** | https://heave-fretful-negate.ngrok-free.dev (runs from my laptop on request, see [Deployment](#deployment); click **Visit Site** on ngrok's notice) |
 | **Demo video** | [Watch the demo video (Google Drive)](https://drive.google.com/drive/folders/1rPJE1aa7948V_zUzESFsc6bPwTawB-9j?usp=sharing) |
 | **Presentation** | [`docs/presentation.pdf`](docs/presentation.pdf) (20 slides) |
 | **Model card** | [`MODEL_CARD.md`](MODEL_CARD.md) |
@@ -347,6 +348,10 @@ redeploy, upload the files of `main` to the Space (`git archive main`, with `dep
 
 The Space runs on CPU, so answers are slower than on a GPU. Team
 assistants created at runtime keep their knowledge index on the Space's disk, so they last until the next restart.
+
+**Live demo from a Mac.** `deploy/live-demo.sh` starts the app locally (on the Apple GPU) and shares it through
+ngrok on the account's fixed address, so the link stays the same between demos. It is online only while the script
+runs. One-time setup: `brew install ngrok`, a free ngrok account, then `ngrok config add-authtoken <token>`.
 
 ## API
 
